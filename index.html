@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dynamic Weekly Schedule & Assignments</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --bg-color: #f8fafc;
@@ -333,19 +332,7 @@
     </style>
 </head>
 <body>
-<div id="auth-container" style="background: white; padding: 20px; border-radius: 8px; max-width: 400px; margin: 40px auto; border: 1px solid var(--border-color);">
-    <h2>Sign In / Sign Up</h2>
-    <div style="display: flex; flex-direction: column; gap: 10px;">
-        <input type="email" id="auth-email" placeholder="Email">
-        <input type="password" id="auth-password" placeholder="Password">
-        <button onclick="handleLogin()" class="submit-btn">Login</button>
-        <button onclick="handleSignUp()" class="secondary-btn">Sign Up</button>
-    </div>
-</div>
 
-<div id="app-container" style="display: none;">
-    <button onclick="handleLogout()" class="nav-btn" style="float: right; margin-top: 10px;">Logout</button>
-</div>
 <div class="container">
     <header>
         <h1>Weekly Dashboard</h1>
@@ -498,260 +485,708 @@
 <div id="modalContainer"></div>
 
 <script>
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     
-// ==========================================
-// SUPABASE CONFIGURATION
-// ==========================================
-// Replace these with your actual credentials from your Supabase Project Settings -> API
-const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
-const SUPABASE_ANON_KEY = 'YOUR_ANON_PUBLIC_KEY';
+    // Default system parameters
+    const baseStartHour = 8;
+    const baseEndHour = 20;
 
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let currentAnchorDate = new Date(); 
+    let events = JSON.parse(localStorage.getItem('calendar_events_v2')) || [];
+    let editingEventId = null; 
+    
+    let mobileCollapseState = {}; 
+    let masterStateOpen = false;
 
-let currentUser = null;
-let events = [];
+    function init() {
+        const today = new Date();
+        document.getElementById('assignDate').value = today.toISOString().split('T')[0];
+        document.getElementById('availDate').value = today.toISOString().split('T')[0];
 
-// ==========================================
-// AUTHENTICATION & INITIALIZATION
-// ==========================================
-function init() {
-    // Listen for auth state changes (login, logout, sign up)
-    supabase.auth.onAuthStateChange((event, session) => {
-        if (session) {
-            currentUser = session.user;
-            // Show app, hide login panel
-            document.getElementById('auth-container').style.display = 'none';
-            document.getElementById('app-container').style.display = 'block';
-            fetchEvents(); // Load user events from the database
-        } else {
-            currentUser = null;
-            // Hide app, show login panel
-            document.getElementById('auth-container').style.display = 'block';
-            document.getElementById('app-container').style.display = 'none';
+        const startSelect = document.getElementById('start');
+        const endSelect = document.getElementById('end');
+        const assignTimeSelect = document.getElementById('assignTime');
+        const availTimeSelect = document.getElementById('availTime');
+
+        // Populate choice selectors across full 24-hour pool for robust user entry
+        for (let h = 0; h < 24; h++) {
+            for (let m of ['00', '30']) {
+                let timeStr = `${h.toString().padStart(2, '0')}:${m}`;
+                startSelect.add(new Option(timeStr, timeStr));
+                assignTimeSelect.add(new Option(timeStr, timeStr));
+                availTimeSelect.add(new Option(timeStr, timeStr));
+                
+                let nextH = m === '30' ? h + 1 : h;
+                let nextM = m === '30' ? '00' : '30';
+                if (nextH <= 24) {
+                    let endStr = `${nextH.toString().padStart(2, '0')}:${nextM}`;
+                    endSelect.add(new Option(endStr, endStr));
+                }
+            }
         }
-    });
-}
+        startSelect.value = "08:00";
+        endSelect.value = "09:00";
+        assignTimeSelect.value = "12:00";
+        availTimeSelect.value = "08:00";
 
-async function handleSignUp() {
-    const email = document.getElementById('auth-email').value;
-    const password = document.getElementById('auth-password').value;
-    if (!email || !password) return alert('Please enter both email and password.');
-
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) alert(error.message);
-    else alert('Signup successful! Check your email for a confirmation link.');
-}
-
-async function handleLogin() {
-    const email = document.getElementById('auth-email').value;
-    const password = document.getElementById('auth-password').value;
-    if (!email || !password) return alert('Please enter both email and password.');
-
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) alert(error.message);
-}
-
-async function handleLogout() {
-    const { error } = await supabase.auth.signOut();
-    if (error) alert(error.message);
-}
-
-// ==========================================
-// DATABASE OPERATIONS (Supabase replacements)
-// ==========================================
-async function fetchEvents() {
-    const { data, error } = await supabase
-        .from('calendar_events')
-        .select('*');
-    
-    if (error) {
-        console.error("Error loading events from database:", error);
-        alert("Failed to load events.");
-    } else {
-        events = data || [];
+        window.addEventListener('resize', debounce(renderCalendar, 150));
         renderCalendar();
     }
-}
 
-async function saveNewEvent(newEvent) {
-    // Add the logged-in user's unique ID to the record
-    newEvent.user_id = currentUser.id;
-
-    const { data, error } = await supabase
-        .from('calendar_events')
-        .insert([newEvent]);
-
-    if (error) {
-        alert("Error saving event: " + error.message);
-    } else {
-        fetchEvents(); // Refresh data from database
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
     }
-}
 
-async function deleteEventFromDb(eventId) {
-    const { error } = await supabase
-        .from('calendar_events')
-        .delete()
-        .eq('id', eventId);
-
-    if (error) {
-        alert("Error deleting event: " + error.message);
-    } else {
-        fetchEvents(); // Refresh data from database
-    }
-}
-
-async function toggleEventCompletionInDb(eventId, currentStatus) {
-    const { error } = await supabase
-        .from('calendar_events')
-        .update({ is_completed: !currentStatus })
-        .eq('id', eventId);
-
-    if (error) {
-        alert("Error updating event status: " + error.message);
-    } else {
-        fetchEvents(); // Refresh data from database
-    }
-}
-
-// ==========================================
-// CORE CALENDAR RENDERING ENGINE
-// ==========================================
-function renderCalendar() {
-    // Render Timetable Schedules
-    const scheduleGrid = document.getElementById('schedule-grid');
-    scheduleGrid.innerHTML = '';
-    
-    const timeSlots = [
-        '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-        '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
-        '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00'
-    ];
-
-    timeSlots.forEach(time => {
-        scheduleGrid.appendChild(createCell(time, 'time-label'));
-        for (let day = 1; day <= 7; day++) {
-            const slotDiv = document.createElement('div');
-            slotDiv.className = 'schedule-slot';
-            
-            // Check for matching recurring events or regular events falling on this day/time
-            const matched = events.filter(e => e.day_of_week === day && e.start_time === time && !e.due_date);
-            
-            matched.forEach(event => {
-                const badge = document.createElement('div');
-                badge.className = `event-badge badge-${event.category || 'class'}`;
-                if (event.is_completed) badge.classList.add('completed-task');
-                
-                badge.innerHTML = `
-                    <strong>${event.title}</strong><br>
-                    <span style="font-size:0.75rem;">${event.start_time}-${event.end_time}</span>
-                `;
-                
-                // Clicking a slot item toggles completed style or allows deletion
-                badge.onclick = (e) => {
-                    e.stopPropagation();
-                    if(confirm(`Delete "${event.title}"?`)) {
-                        deleteEventFromDb(event.id);
-                    }
-                };
-                slotDiv.appendChild(badge);
-            });
-            
-            scheduleGrid.appendChild(slotDiv);
+    function switchTab(type) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.form-content').forEach(c => c.classList.remove('active'));
+        
+        if (type === 'event') {
+            document.querySelectorAll('.tab-btn')[0].classList.add('active');
+            document.getElementById('eventForm').classList.add('active');
+        } else {
+            document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            document.getElementById('assignmentForm').classList.add('active');
         }
-    });
+    }
 
-    // Render Assignment Tracker
-    const trackerContainer = document.getElementById('tracker-items');
-    trackerContainer.innerHTML = '';
-    
-    const assignments = events.filter(e => e.due_date || e.category === 'assignment');
-    
-    if (assignments.length === 0) {
-        trackerContainer.innerHTML = '<div style="color:var(--locked-text); text-align:center; padding:20px;">No assignments tracked yet.</div>';
-    } else {
-        assignments.forEach(task => {
-            const card = document.createElement('div');
-            card.className = `tracker-card ${task.is_completed ? 'completed-task' : ''}`;
+    function toggleRecurrenceInput() {
+        const checkbox = document.getElementById('isRecurring');
+        document.getElementById('weeksGroup').style.display = checkbox.checked ? 'flex' : 'none';
+    }
+
+    function getMonday(d) {
+        let date = new Date(d);
+        let day = date.getDay();
+        let diff = date.getDate() - day + (day === 0 ? -6 : 1);
+        return new Date(date.setDate(diff));
+    }
+
+    function formatDateShort(date) {
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    function getDateString(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function navigateWeek(direction) {
+        currentAnchorDate.setDate(currentAnchorDate.getDate() + (direction * 7));
+        mobileCollapseState = {}; 
+        renderCalendar();
+    }
+
+    function goToCurrentWeek() {
+        currentAnchorDate = new Date();
+        mobileCollapseState = {};
+        renderCalendar();
+    }
+
+    function isAssignmentLocked(assignment) {
+        if (!assignment.availDate) return false; 
+        const now = new Date();
+        const availDateTime = new Date(`${assignment.availDate}T${assignment.availTime || '00:00'}:00`);
+        return now < availDateTime;
+    }
+
+    function toggleComplete(id) {
+        const index = events.findIndex(e => e.id === id);
+        if(index !== -1) {
+            if (events[index].type === 'assignment' && isAssignmentLocked(events[index])) {
+                return; 
+            }
+            events[index].completed = !events[index].completed;
+            saveAndRefresh();
+        }
+    }
+
+    function toggleMobileDay(dateStr) {
+        mobileCollapseState[dateStr] = !mobileCollapseState[dateStr];
+        renderCalendar();
+    }
+
+    function toggleAllMobileDays() {
+        masterStateOpen = !masterStateOpen;
+        const monday = getMonday(currentAnchorDate);
+        const dayOrder = [1, 2, 3, 4, 5, 6, 0];
+        
+        dayOrder.forEach((d, idx) => {
+            let colDate = new Date(monday);
+            colDate.setDate(monday.getDate() + idx);
+            let targetStr = getDateString(colDate);
+            mobileCollapseState[targetStr] = !masterStateOpen; 
+        });
+        renderCalendar();
+    }
+
+    function editEvent(id, e) {
+        if (e && (e.target.classList.contains('delete-btn') || e.target.classList.contains('card-checkbox') || e.target.classList.contains('item-chk'))) return;
+
+        const item = events.find(x => x.id === id);
+        if (!item) return;
+
+        if (item.type === 'assignment') {
+            switchTab('assignment');
+            document.getElementById('assignTitle').value = item.title;
+            document.getElementById('assignDate').value = item.date;
+            document.getElementById('assignTime').value = item.start;
+            document.getElementById('assignNotes').value = item.notes;
             
-            card.innerHTML = `
-                <div class="tracker-info">
-                    <span class="category-indicator cat-${task.category}"></span>
-                    <div>
-                        <div class="tracker-title">${task.title}</div>
-                        <div class="tracker-meta">Due: ${task.due_date || 'N/A'} | ${task.location || 'No Location'}</div>
+            document.getElementById('availDate').value = item.availDate || item.date;
+            document.getElementById('availTime').value = item.availTime || "08:00";
+            
+            const submitBtn = document.getElementById('assignSubmitBtn');
+            submitBtn.innerText = "Update Assignment";
+            submitBtn.setAttribute('onclick', `saveAssignmentEdit('${id}')`);
+            document.getElementById('assignCancelBtn').style.display = 'inline-block';
+            
+            document.querySelector('.form-container').scrollIntoView({ behavior: 'smooth' });
+            return;
+        }
+
+        switchTab('event');
+        
+        const relatedChunks = item.groupId 
+            ? events.filter(x => x.groupId === item.groupId)
+            : events.filter(x => x.title === item.title && x.date === item.date && x.category === item.category);
+
+        relatedChunks.sort((a, b) => a.start.localeCompare(b.start));
+        const trueStart = relatedChunks[0].start;
+        const trueEnd = relatedChunks[relatedChunks.length - 1].end;
+
+        document.getElementById('title').value = item.title;
+        document.getElementById('eventCategory').value = item.category || 'class';
+        document.getElementById('day').value = item.day;
+        document.getElementById('start').value = trueStart;
+        document.getElementById('end').value = trueEnd;
+        document.getElementById('location').value = item.location || '';
+        document.getElementById('notes').value = item.notes || '';
+        
+        const isRecur = !!item.groupId;
+        document.getElementById('isRecurring').checked = isRecur;
+        toggleRecurrenceInput();
+        
+        editingEventId = item.groupId ? item.groupId : item.id;
+
+        document.getElementById('eventSubmitBtn').innerText = "Update Event";
+        document.getElementById('eventSubmitBtn').setAttribute('onclick', 'saveEventEdit()');
+        document.getElementById('eventCancelBtn').style.display = 'inline-block';
+        
+        document.querySelector('.form-container').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function cancelEdit() {
+        editingEventId = null;
+        document.getElementById('title').value = '';
+        document.getElementById('location').value = '';
+        document.getElementById('notes').value = '';
+        document.getElementById('isRecurring').checked = false;
+        toggleRecurrenceInput();
+        
+        document.getElementById('eventSubmitBtn').innerText = "Add Event";
+        document.getElementById('eventSubmitBtn').setAttribute('onclick', 'addEvent()');
+        document.getElementById('eventCancelBtn').style.display = 'none';
+
+        document.getElementById('assignTitle').value = '';
+        document.getElementById('assignNotes').value = '';
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('assignDate').value = today;
+        document.getElementById('availDate').value = today;
+        
+        const assignBtn = document.getElementById('assignSubmitBtn');
+        assignBtn.innerText = "Add Assignment";
+        assignBtn.setAttribute('onclick', 'addAssignment()');
+        document.getElementById('assignCancelBtn').style.display = 'none';
+    }
+
+    function saveEventEdit() {
+        if (!editingEventId) return;
+        events = events.filter(x => x.id !== editingEventId && x.groupId !== editingEventId);
+        editingEventId = null;
+        addEvent(); 
+        document.getElementById('eventSubmitBtn').innerText = "Add Event";
+        document.getElementById('eventSubmitBtn').setAttribute('onclick', 'addEvent()');
+        document.getElementById('eventCancelBtn').style.display = 'none';
+    }
+
+    function saveAssignmentEdit(id) {
+        events = events.filter(x => x.id !== id);
+        addAssignment();
+        cancelEdit();
+    }
+
+    function addAssignment() {
+        const title = document.getElementById('assignTitle').value.trim();
+        const dateRaw = document.getElementById('assignDate').value;
+        const time = document.getElementById('assignTime').value;
+        const notes = document.getElementById('assignNotes').value.trim();
+        
+        const availDate = document.getElementById('availDate').value;
+        const availTime = document.getElementById('availTime').value;
+
+        if (!title || !dateRaw) return alert('Please input at least an assignment title and due date.');
+
+        const parseDate = new Date(dateRaw + 'T00:00:00');
+        const dayOfWeek = parseDate.getDay();
+
+        events.push({
+            id: Date.now().toString(),
+            type: 'assignment',
+            title,
+            day: dayOfWeek.toString(),
+            date: dateRaw, 
+            start: time,
+            end: time,
+            notes,
+            availDate,
+            availTime,
+            completed: false,
+            hasClash: false
+        });
+        saveAndRefresh();
+
+        document.getElementById('assignTitle').value = '';
+        document.getElementById('assignNotes').value = '';
+    }
+
+    function addEvent() {
+        const title = document.getElementById('title').value.trim();
+        const day = parseInt(document.getElementById('day').value);
+        const category = document.getElementById('eventCategory').value;
+        const start = document.getElementById('start').value;
+        const end = document.getElementById('end').value;
+        const location = document.getElementById('location').value.trim();
+        const notes = document.getElementById('notes').value.trim();
+        const isRecurring = document.getElementById('isRecurring').checked;
+        const weeksCount = parseInt(document.getElementById('weeksCount').value) || 1;
+
+        if (!title) return alert('Please enter an event name.');
+        if (start >= end) return alert('End time must be after start time.');
+
+        const monday = getMonday(currentAnchorDate);
+        const dayOrder = [1, 2, 3, 4, 5, 6, 0];
+        const colIndex = dayOrder.indexOf(day);
+        
+        let anchorDate = new Date(monday);
+        anchorDate.setDate(monday.getDate() + colIndex);
+
+        const loops = isRecurring ? weeksCount : 1;
+        const groupId = isRecurring ? Date.now().toString() : null;
+
+        const startH = parseInt(start.split(':')[0]);
+        const endH = parseInt(end.split(':')[0]);
+        const endM = parseInt(end.split(':')[1]);
+
+        const maxHour = endM > 0 ? endH : endH - 1;
+
+        for (let i = 0; i < loops; i++) {
+            let eventDate = new Date(anchorDate);
+            eventDate.setDate(anchorDate.getDate() + (i * 7));
+
+            for (let h = startH; h <= maxHour; h++) {
+                const chunkStart = h === startH ? start : `${h.toString().padStart(2, '0')}:00`;
+                const chunkEnd = h === maxHour ? end : `${(h + 1).toString().padStart(2, '0')}:00`;
+
+                events.push({
+                    id: `${Date.now()}-${i}-${h}-${Math.random()}`,
+                    groupId,
+                    type: 'event',
+                    category,
+                    title,
+                    day: day.toString(),
+                    date: getDateString(eventDate),
+                    start: chunkStart,
+                    end: chunkEnd,
+                    location,
+                    notes,
+                    completed: false,
+                    hasClash: false
+                });
+            }
+        }
+
+        saveAndRefresh();
+
+        document.getElementById('title').value = '';
+        document.getElementById('location').value = '';
+        document.getElementById('notes').value = '';
+        document.getElementById('isRecurring').checked = false;
+        toggleRecurrenceInput();
+    }
+
+    function closeModal() {
+        document.getElementById('modalContainer').innerHTML = '';
+    }
+
+    function handleDeleteClick(id, groupId, dateStr, titleText) {
+        const modalContainer = document.getElementById('modalContainer');
+        
+        if (groupId) {
+            modalContainer.innerHTML = `
+                <div class="modal-overlay" onclick="closeModal()">
+                    <div class="modal-box" onclick="event.stopPropagation()">
+                        <div class="modal-title">Delete Recurring Event</div>
+                        <div class="modal-body">
+                            <strong>"${titleText}"</strong> is part of a weekly recurring series. Would you like to remove just this date, or the entire series?
+                        </div>
+                        <div class="modal-actions">
+                            <button class="modal-btn danger" onclick="executeDelete('one', '${id}', '${groupId}', '${dateStr}')">One (Just ${dateStr})</button>
+                            <button class="modal-btn danger" onclick="executeDelete('all', '${id}', '${groupId}', '${dateStr}')">All (Entire Series)</button>
+                            <button class="modal-btn" onclick="closeModal()">Cancel</button>
+                        </div>
                     </div>
                 </div>
-                <div class="tracker-actions">
-                    <button class="action-btn done-btn" onclick="toggleEventCompletionInDb('${task.id}', ${task.is_completed})">✓</button>
-                    <button class="action-btn delete-btn" onclick="deleteEventFromDb('${task.id}')">✕</button>
+            `;
+        } else {
+            modalContainer.innerHTML = `
+                <div class="modal-overlay" onclick="closeModal()">
+                    <div class="modal-box" onclick="event.stopPropagation()">
+                        <div class="modal-title">Confirm Deletion</div>
+                        <div class="modal-body">
+                            Are you sure you want to delete the item <strong>"${titleText}"</strong>? This action cannot be undone.
+                        </div>
+                        <div class="modal-actions">
+                            <button class="modal-btn danger" onclick="executeDelete('single', '${id}', null, null)">Yes, Delete</button>
+                            <button class="modal-btn" onclick="closeModal()">Cancel</button>
+                        </div>
+                    </div>
                 </div>
             `;
-            trackerContainer.appendChild(card);
+        }
+    }
+
+    function executeDelete(mode, id, groupId, dateStr) {
+        if (mode === 'one') {
+            events = events.filter(e => !(e.groupId === groupId && e.date === dateStr));
+        } else if (mode === 'all') {
+            events = events.filter(e => e.groupId !== groupId);
+        } else if (mode === 'single') {
+            events = events.filter(e => e.id !== id);
+        }
+        closeModal();
+        saveAndRefresh();
+    }
+
+    function detectClashes(columnDates) {
+        events.forEach(e => e.hasClash = false);
+        for (let i = 0; i < events.length; i++) {
+            for (let j = i + 1; j < events.length; j++) {
+                let a = events[i], b = events[j];
+                if (a.completed || b.completed || a.type === 'assignment' || b.type === 'assignment') continue;
+
+                if (a.day === b.day && a.date === b.date && a.start < b.end && b.start < a.end) {
+                    a.hasClash = true; b.hasClash = true;
+                }
+            }
+        }
+    }
+
+    function getFilteredEvents() {
+        const showClasses = document.getElementById('filterClasses').checked;
+        const showWork = document.getElementById('filterWork').checked;
+        const showAssignments = document.getElementById('filterAssignments').checked;
+        
+        return events.filter(e => {
+            if (e.type === 'assignment' && !showAssignments) return false;
+            if (e.type === 'event') {
+                if (e.category === 'class' && !showClasses) return false;
+                if (e.category === 'work' && !showWork) return false;
+            }
+            return true;
         });
     }
-}
 
-// ==========================================
-// FORM SUBMISSION HANDLING
-// ==========================================
-function handleFormSubmit(e) {
-    e.preventDefault();
-    
-    const title = document.getElementById('title').value;
-    const category = document.getElementById('category').value;
-    const dayOfWeek = parseInt(document.getElementById('dayOfWeek').value);
-    const startTime = document.getElementById('startTime').value;
-    const endTime = document.getElementById('endTime').value;
-    const location = document.getElementById('location').value;
-    const notes = document.getElementById('notes').value;
-    const dueDate = document.getElementById('dueDate').value;
+    function renderCalendar() {
+        const cal = document.getElementById('calendar');
+        cal.innerHTML = ''; 
 
-    const newEvent = {
-        title,
-        category,
-        day_of_week: dayOfWeek || null,
-        start_time: startTime || null,
-        end_time: endTime || null,
-        location,
-        notes,
-        is_completed: false,
-        due_date: dueDate || null
-    };
+        const monday = getMonday(currentAnchorDate);
+        const todayStr = new Date().toDateString();
 
-    saveNewEvent(newEvent);
-    document.getElementById('schedule-form').reset();
-}
+        const sundayOfView = new Date(monday);
+        sundayOfView.setDate(monday.getDate() + 6);
+        document.getElementById('weekLabel').innerText = `${formatDateShort(monday)} – ${formatDateShort(sundayOfView)}`;
 
-// ==========================================
-// UTILITY FUNCTIONS
-// ==========================================
-function createCell(text, className) {
-    const div = document.createElement('div');
-    div.className = className;
-    div.innerText = text;
-    return div;
-}
+        const dayOrder = [1, 2, 3, 4, 5, 6, 0];
+        const columnDates = dayOrder.map((d, index) => {
+            let colDate = new Date(monday);
+            colDate.setDate(monday.getDate() + index);
+            return colDate;
+        });
 
-// JSON Local Export
-function exportData() {
-    if (events.length === 0) return alert("Your schedule data array is empty.");
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(events, null, 2));
-    const anchor = document.createElement('a');
-    anchor.setAttribute("href", dataStr);
-    anchor.setAttribute("download", "academic_schedule_backup.json");
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-}
+        // Parse array into strings to cleanly check targeted date range bounds
+        const allowedWeekStrings = columnDates.map(d => getDateString(d));
 
-// Form intercept attachment
-document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('schedule-form');
-    if(form) form.addEventListener('submit', handleFormSubmit);
-});
+        detectClashes(columnDates);
+        renderSidebar();
 
-window.onload = init;
+        const activeEvents = getFilteredEvents();
+
+        // Dynamically compute the current week's boundary hours
+        let currentStartHour = baseStartHour;
+        let currentEndHour = baseEndHour;
+
+        // Scan the data layout matching active items strictly in the visible week range
+        activeEvents.forEach(e => {
+            if (allowedWeekStrings.includes(e.date)) {
+                if (e.start) {
+                    const sHour = parseInt(e.start.split(':')[0]);
+                    if (sHour < currentStartHour) currentStartHour = sHour;
+                }
+                if (e.end) {
+                    const eHour = parseInt(e.end.split(':')[0]);
+                    const eMin = parseInt(e.end.split(':')[1] || 0);
+                    // Account for partial hour block adjustments
+                    const targetedCeil = eMin > 0 ? eHour + 1 : eHour;
+                    if (targetedCeil > currentEndHour) currentEndHour = targetedCeil;
+                }
+            }
+        });
+
+        // Ensure boundary validation rules
+        if (currentStartHour < 0) currentStartHour = 0;
+        if (currentEndHour > 24) currentEndHour = 24;
+
+        const isMobile = window.innerWidth <= 1149;
+
+        if (isMobile) {
+            columnDates.forEach((date, index) => {
+                const dayValue = dayOrder[index];
+                const isToday = date.toDateString() === todayStr;
+                const targetDateStr = getDateString(date);
+
+                if (mobileCollapseState[targetDateStr] === undefined) {
+                    mobileCollapseState[targetDateStr] = !isToday; 
+                }
+
+                const isCollapsed = mobileCollapseState[targetDateStr];
+
+                const dayGroup = document.createElement('div');
+                dayGroup.className = `mobile-day-group ${isCollapsed ? 'collapsed' : ''}`;
+
+                const headerCell = document.createElement('div');
+                headerCell.className = `mobile-group-header ${isToday ? 'today-highlight' : ''}`;
+                headerCell.setAttribute('onclick', `toggleMobileDay('${targetDateStr}')`);
+                headerCell.innerHTML = `
+                    <div>${days[dayValue]}</div>
+                    <div class="header-date">${formatDateShort(date)}</div>
+                `;
+                dayGroup.appendChild(headerCell);
+
+                const eventsContainer = document.createElement('div');
+                eventsContainer.className = 'mobile-day-events';
+
+                const dayEvents = activeEvents.filter(e => parseInt(e.day) === dayValue && (!e.date || e.date === targetDateStr));
+                dayEvents.sort((a, b) => a.start.localeCompare(b.start));
+
+                if(dayEvents.length === 0) {
+                    dayGroup.classList.add('empty-day');
+                    eventsContainer.innerHTML = `<div class="mobile-no-events-stub">No active items visible</div>`;
+                } else {
+                    dayEvents.forEach(e => {
+                        const isAssign = e.type === 'assignment';
+                        const isLocked = isAssign && isAssignmentLocked(e);
+                        
+                        let dynamicTypeClass = 'class-type'; 
+                        if (isAssign) dynamicTypeClass = 'assignment-type';
+                        else if (e.category === 'work') dynamicTypeClass = 'work-type';
+
+                        let emoji = '🎓 ';
+                        if (isAssign) emoji = isLocked ? '🔒 ' : '📝 ';
+                        else if (e.category === 'work') emoji = '💼 ';
+
+                        const card = document.createElement('div');
+                        card.className = `event-card ${dynamicTypeClass} ${e.completed ? 'completed-state' : ''} ${isLocked ? 'locked-state' : ''} ${e.hasClash ? 'clash' : ''}`;
+                        card.setAttribute('onclick', `editEvent('${e.id}', event)`);
+                        card.style.cursor = 'pointer';
+                        
+                        const safeTitle = e.title.replace(/'/g, "\\'");
+                        const deleteAction = `handleDeleteClick('${e.id}', ${e.groupId ? `'${e.groupId}'` : 'null'}, '${e.date}', '${safeTitle}')`;
+                        
+                        card.innerHTML = `
+                            <button class="delete-btn" onclick="${deleteAction}">×</button>
+                            <div class="event-title">
+                                ${isAssign ? `<input type="checkbox" class="card-checkbox" ${e.completed ? 'checked' : ''} ${isLocked ? 'disabled' : ''} onclick="toggleComplete('${e.id}')">` : ''}
+                                ${emoji}${e.title}
+                            </div>
+                            <div class="event-time">${isAssign ? 'Due at ' + e.start : e.start + ' - ' + e.end}</div>
+                            ${isLocked ? `<div class="locked-badge">Not yet available</div>` : ''}
+                            ${e.location ? `<div class="event-meta">📍 ${e.location}</div>` : ''}
+                            ${e.notes ? `<div class="event-meta event-notes">${e.notes}</div>` : ''}
+                            ${e.hasClash ? '<div class="clash-warning">⚠️ Schedule Clash</div>' : ''}
+                        `;
+                        eventsContainer.appendChild(card);
+                    });
+                }
+
+                dayGroup.appendChild(eventsContainer);
+                cal.appendChild(dayGroup);
+            });
+
+        } else {
+            cal.appendChild(createCell('', 'header-cell')); 
+            
+            columnDates.forEach((date, index) => {
+                const isToday = date.toDateString() === todayStr;
+                const headerCell = document.createElement('div');
+                headerCell.className = `header-cell ${isToday ? 'today-highlight' : ''}`;
+                headerCell.innerHTML = `
+                    <div>${days[dayOrder[index]]}</div>
+                    <div class="header-date">${formatDateShort(date)}</div>
+                `;
+                cal.appendChild(headerCell);
+            });
+
+            // Loop structural configuration utilizes computed variable dimensions safely
+            for (let h = currentStartHour; h < currentEndHour; h++) {
+                cal.appendChild(createCell(`${h.toString().padStart(2, '0')}:00`, 'time-cell'));
+
+                columnDates.forEach((date, index) => {
+                    const dayValue = dayOrder[index];
+                    const isToday = date.toDateString() === todayStr;
+                    const targetDateStr = getDateString(date);
+                    
+                    const cell = document.createElement('div');
+                    cell.className = `cell ${isToday ? 'today-cell' : ''}`;
+                    
+                    const currentEvents = activeEvents.filter(e => 
+                        parseInt(e.day) === dayValue && 
+                        parseInt(e.start.split(':')[0]) === h &&
+                        (!e.date || e.date === targetDateStr)
+                    );
+                    
+                    currentEvents.forEach(e => {
+                        const isAssign = e.type === 'assignment';
+                        const isLocked = isAssign && isAssignmentLocked(e);
+                        
+                        let dynamicTypeClass = 'class-type'; 
+                        if (isAssign) dynamicTypeClass = 'assignment-type';
+                        else if (e.category === 'work') dynamicTypeClass = 'work-type';
+
+                        let emoji = '🎓 ';
+                        if (isAssign) emoji = isLocked ? '🔒 ' : '📝 ';
+                        else if (e.category === 'work') emoji = '💼 ';
+
+                        const card = document.createElement('div');
+                        card.className = `event-card ${dynamicTypeClass} ${e.completed ? 'completed-state' : ''} ${isLocked ? 'locked-state' : ''} ${e.hasClash ? 'clash' : ''}`;
+                        card.setAttribute('onclick', `editEvent('${e.id}', event)`);
+                        card.style.cursor = 'pointer';
+                        
+                        const safeTitle = e.title.replace(/'/g, "\\'");
+                        const deleteAction = `handleDeleteClick('${e.id}', ${e.groupId ? `'${e.groupId}'` : 'null'}, '${e.date}', '${safeTitle}')`;
+                            
+                        card.innerHTML = `
+                            <button class="delete-btn" onclick="${deleteAction}">×</button>
+                            <div class="event-title">
+                                ${isAssign ? `<input type="checkbox" class="card-checkbox" ${e.completed ? 'checked' : ''} ${isLocked ? 'disabled' : ''} onclick="toggleComplete('${e.id}')">` : ''}
+                                ${emoji}${e.title}
+                            </div>
+                            <div class="event-time">${isAssign ? 'Due at ' + e.start : e.start + ' - ' + e.end}</div>
+                            ${isLocked ? `<div class="locked-badge">Not yet available</div>` : ''}
+                            ${e.location ? `<div class="event-meta">📍 ${e.location}</div>` : ''}
+                            ${e.notes ? `<div class="event-meta event-notes">${e.notes}</div>` : ''}
+                            ${e.hasClash ? '<div class="clash-warning">⚠️ Schedule Clash</div>' : ''}
+                        `;
+                        cell.appendChild(card);
+                    });
+
+                    cal.appendChild(cell);
+                });
+            }
+        }
+    }
+
+    function renderSidebar() {
+        const container = document.getElementById('sidebarList');
+        container.innerHTML = '';
+
+        const assignments = events.filter(e => e.type === 'assignment');
+        assignments.sort((a, b) => {
+            if (a.date !== b.date) return new Date(a.date) - new Date(b.date);
+            return a.start.localeCompare(b.start);
+        });
+
+        if(assignments.length === 0) {
+            container.innerHTML = `<div style="font-size:0.8rem; color:#94a3b8; text-align:center; padding: 20px 0;">No assignments logged yet.</div>`;
+            return;
+        }
+
+        assignments.forEach(a => {
+            const dateObj = new Date(a.date + 'T00:00:00');
+            const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const isLocked = isAssignmentLocked(a);
+            
+            const div = document.createElement('div');
+            div.className = `sidebar-item ${a.completed ? 'assignment-done' : ''} ${isLocked ? 'locked-state' : ''}`;
+            div.setAttribute('onclick', `editEvent('${a.id}', event)`);
+            div.style.cursor = 'pointer';
+            
+            const safeTitle = a.title.replace(/'/g, "\\'");
+            const deleteAction = `handleDeleteClick('${a.id}', null, '${a.date}', '${safeTitle}')`;
+
+            div.innerHTML = `
+                <input type="checkbox" class="item-chk" ${a.completed ? 'checked' : ''} ${isLocked ? 'disabled' : ''} onclick="toggleComplete('${a.id}')">
+                <div class="item-details">
+                    <div class="item-title">${isLocked ? '🔒 ' : ''}${a.title}</div>
+                    <div class="item-date">📅 Due: ${formattedDate} @ ${a.start}</div>
+                    ${isLocked ? `<div class="locked-badge" style="margin-bottom:4px;">Not yet available</div>` : ''}
+                    ${a.notes ? `<div class="item-subtext">📌 ${a.notes}</div>` : ''}
+                </div>
+                <button class="delete-btn" style="top:8px; right:8px;" onclick="${deleteAction}">×</button>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function createCell(text, className) {
+        const div = document.createElement('div');
+        div.className = className;
+        div.innerText = text;
+        return div;
+    }
+
+    function saveAndRefresh() {
+        localStorage.setItem('calendar_events_v2', JSON.stringify(events));
+        renderCalendar();
+    }
+
+    function exportData() {
+        if (events.length === 0) return alert("Your schedule data array is empty.");
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(events, null, 2));
+        const anchor = document.createElement('a');
+        anchor.setAttribute("href", dataStr);
+        anchor.setAttribute("download", "academic_schedule_backup.json");
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+    }
+
+    function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const imported = JSON.parse(e.target.result);
+                if (Array.isArray(imported)) {
+                    events = imported;
+                    saveAndRefresh();
+                    alert("Schedule & tracker successfully imported!");
+                }
+            } catch (err) { alert("Invalid backup profile layout."); }
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+    }
+
+    window.onload = init;
 </script>
 
 </body>
