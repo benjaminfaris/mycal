@@ -797,26 +797,30 @@
         </style>
     </head>
     <body>
-        <div id="authScreen" class="auth-container">
-            <h2 id="authTitle">Sign In to Your Calendar</h2>
-            <div class="auth-form">
-                <div class="form-group">
-                    <label for="authEmail">Email Address</label>
-                    <input type="email" id="authEmail" placeholder="you@example.com" />
-                </div>
-                <div class="form-group">
-                    <label for="authPassword">Password</label>
-                    <input type="password" id="authPassword" placeholder="••••••••" />
-                </div>
-                <button class="submit-btn" id="authBtn" onclick="handleAuth()">Sign In</button>
-            </div>
-            <div class="auth-toggle">
-                <span id="authToggleText" onclick="toggleAuthMode()">Don't have an account? Sign Up</span>
-            </div>
+        <div id="authScreen" style="max-width: 400px; margin: 80px auto; padding: 30px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); font-family: sans-serif;">
+    <h2 id="authTitle" style="margin-top: 0; margin-bottom: 20px; font-size: 1.4rem; text-align: center; color: #0f172a;">Sign In to Your Calendar</h2>
+    
+    <div style="display: flex; flex-direction: column; gap: 15px;">
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+            <label for="authEmail" style="font-size: 0.85rem; font-weight: 600; color: #334155;">Email Address</label>
+            <input type="email" id="authEmail" placeholder="you@example.com" style="padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem;">
         </div>
-        <div class="container">
-            <header>
-                <h1>Weekly Dashboard</h1>
+        
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+            <label for="authPassword" style="font-size: 0.85rem; font-weight: 600; color: #334155;">Password</label>
+            <input type="password" id="authPassword" placeholder="••••••••" style="padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem;">
+        </div>
+        
+        <button id="authBtn" onclick="handleAuth()" style="background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.95rem;">Sign In</button>
+    </div>
+    
+    <div style="text-align: center; margin-top: 20px; font-size: 0.85rem; color: #64748b;">
+        <span id="authToggleText" style="cursor: pointer; color: #3b82f6; font-weight: 600;" onclick="toggleAuthMode()">Don't have an account? Sign Up</span>
+    </div>
+</div>
+        <div class="container" id="appContainer" style="display: none;">
+    <header>
+        <h1>Weekly Dashboard</h1>
                 <div class="nav-controls">
                     <button class="nav-btn" onclick="navigateWeek(-1)">◀ Prev</button>
                     <button class="nav-btn" onclick="goToCurrentWeek()">Today</button>
@@ -1064,34 +1068,69 @@
                 window.addEventListener("resize", debounce(renderCalendar, 150));
             }
 
-            // Switch between Login and SignUp Mode in UI
-            function toggleAuthMode() {
-                isSignUpMode = !isSignUpMode;
-                document.getElementById("authTitle").innerText = isSignUpMode
-                    ? "Create Your Account"
-                    : "Sign In to Your Calendar";
-                document.getElementById("authBtn").innerText = isSignUpMode ? "Register & Login" : "Sign In";
-                document.getElementById("authToggleText").innerHTML = isSignUpMode
-                    ? "Already have an account? <span>Sign In</span>"
-                    : "Don't have an account? <span>Sign Up</span>";
-            }
+            let isSignUpMode = false;
 
-            // Process Sign In or Sign Up requests
-            async function handleAuth() {
-                const email = document.getElementById("authEmail").value.trim();
-                const password = document.getElementById("authPassword").value;
+// 1. Toggle between Login & Sign Up modes visually
+function toggleAuthMode() {
+    isSignUpMode = !isSignUpMode;
+    const title = document.getElementById('authTitle');
+    const button = document.getElementById('authBtn');
+    const toggleText = document.getElementById('authToggleText');
+    
+    if (isSignUpMode) {
+        title.innerText = "Create Your Account";
+        button.innerText = "Sign Up";
+        toggleText.innerHTML = "Already have an account? <strong style='color:#3b82f6'>Sign In</strong>";
+    } else {
+        title.innerText = "Sign In to Your Calendar";
+        button.innerText = "Sign In";
+        toggleText.innerHTML = "Don't have an account? <strong style='color:#3b82f6'>Sign Up</strong>";
+    }
+}
 
-                if (!email || !password) return alert("Please fill out all fields.");
+// 2. Handle the Auth submission using Supabase API
+async function handleAuth() {
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
 
-                if (isSignUpMode) {
-                    const { error } = await supabase.auth.signUp({ email, password });
-                    if (error) alert("Sign Up failed: " + error.message);
-                    else alert("Registration successful! Check email for verification link (if enabled) or log in.");
-                } else {
-                    const { error } = await supabase.auth.signInWithPassword({ email, password });
-                    if (error) alert("Sign In failed: " + error.message);
-                }
-            }
+    if (!email || !password) {
+        alert("Please fill out all fields.");
+        return;
+    }
+
+    if (isSignUpMode) {
+        // Create a new account in Supabase
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) {
+            alert("Sign Up Error: " + error.message);
+        } else {
+            alert("Sign up successful! Please check your email inbox for a confirmation link.");
+        }
+    } else {
+        // Sign in existing user
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+            alert("Sign In Error: " + error.message);
+        }
+    }
+}
+
+// 3. Keep track of current user sessions & toggle screen visibility
+supabase.auth.onAuthStateChange((event, session) => {
+    const authScreen = document.getElementById('authScreen');
+    const appContainer = document.getElementById('appContainer');
+
+    if (session) {
+        // User is logged in! Hide Login card, show Calendar
+        authScreen.style.display = 'none';
+        appContainer.style.display = 'block';
+        // You can run loadEventsFromSupabase() here to grab their calendar events
+    } else {
+        // User is logged out! Show Login card, hide Calendar
+        authScreen.style.display = 'block';
+        appContainer.style.display = 'none';
+    }
+});
 
             async function handleSignOut() {
                 await supabase.auth.signOut();
