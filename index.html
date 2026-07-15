@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Weekly Schedule & Assignments</title>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-color: #ffffff;
+            --text-main: #0f172a;
+            --border-color: #e2e8f0;
+            --primary: #3b82f6;
+            --primary-light: #eff6ff;
+            --assignment: #8b5cf6;
+            --assignment-light: #f5f3ff;
+            --danger: #ef4444;
+            --danger-bg: #fee2e2;
+            --accent-green: #22c55e;
+            --accent-green-light: #f0fdf4;
+            --completed-bg: #f1f5f9;
+            --completed-text: #94a3b8;
+            --work: #f59e0b;
+            --work-light: #fffbeb;
+            --class: #06b6d4;
+            --class-light: #ecfeff;
+            
+            /* Locked styling colors */
+            --locked-bg: #f8fafc;
+            --locked-text: #94a3b8;
+            --locked-border: #cbd5e1;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
+
+        .nav-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .nav-btn {
+            background: var(--card-color);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 8px 14px;
+            font-size: 0.9rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .nav-btn:hover { background: #f1f5f9; }
+        .current-week-label { font-weight: 600; font-size: 1rem; min-width: 180px; text-align: center; }
+
+        .form-container {
+            background: var(--card-color);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .form-tabs {
+            display: flex;
+            background: #f1f5f9;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 10px 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: #64748b;
+        }
+        .tab-btn.active {
+            background: var(--card-color);
+            color: var(--text-main);
+            border-bottom: 2px solid var(--primary);
+        }
+        .tab-btn.assignment-tab.active {
+            border-bottom-color: var(--assignment);
+        }
+        
+        .form-panel {
+            padding: 15px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .form-content { display: none; width: 100%; }
+        .form-content.active { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex-grow: 1;
+            min-width: 120px;
+        }
+        .form-group.small { flex-grow: 0; min-width: 90px; }
+        .form-group.checkbox { flex-direction: row; align-items: center; gap: 8px; min-width: auto; height: 38px; }
+        .form-group.checkbox input { cursor: pointer; width: 16px; height: 16px; margin: 0; }
+        .form-group label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #64748b; }
+        
+        input, select, button {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        input:focus, select:focus { outline: 2px solid var(--primary); }
+        
+        .submit-btn { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: 600; height: 38px; }
+        .submit-btn.assign { background: var(--assignment); }
+        .secondary-btn { background: var(--card-color); border: 1px solid var(--border-color); cursor: pointer; font-weight: 600; }
+        .secondary-btn:hover { background: #e2e8f0; }
+
+        .controls-toolbar {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        @media(min-width: 600px) {
+            .controls-toolbar {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+            }
+        }
+
+        .filter-panel {
+            background: var(--card-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 15px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .filter-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+        .filter-opt {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .filter-opt input {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            margin: 0;
+        }
+
+        .mobile-master-toggle {
+            display: none;
+            background: var(--card-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            flex-grow: 1;
+        }
+        .mobile-master-toggle:hover { background: #f1f5f9; }
+
+        .dashboard-layout {
+            display: flex;
+            gap: 20px;
+            flex-direction: column;
+        }
+        @media(min-width: 1150px) {
+            .dashboard-layout { flex-direction: row; align-items: flex-start; }
+            .calendar-grid-wrapper { flex: 3; min-width: 0; }
+            .sidebar-wrapper { flex: 1; min-width: 320px; position: sticky; top: 20px; }
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: 60px repeat(7, minmax(0, 1fr));
+            background: var(--card-color);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+        .cell { padding: 6px; border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); min-height: 85px; position: relative; background: var(--card-color); word-break: break-word; }
+        .header-cell { background: #f1f5f9; font-weight: 600; text-align: center; font-size: 0.8rem; padding: 10px 4px; display: flex; flex-direction: column; gap: 2px; border-bottom: 2px solid var(--border-color); }
+        .header-date { font-size: 0.7rem; color: #64748b; font-weight: 400; }
+        .header-cell.today-highlight { background: var(--primary-light); color: var(--primary); border-bottom: 2px solid var(--primary); }
+        .header-cell.today-highlight .header-date { color: var(--primary); font-weight: 600; }
+        .cell.today-cell { background: #fdfdfd; }
+        .time-cell { background: #f1f5f9; font-size: 0.7rem; color: #64748b; text-align: right; padding-right: 6px; font-weight: 500; display: flex; align-items: center; justify-content: flex-end; }
+
+        @media (max-width: 1149px) {
+            .mobile-master-toggle { display: block; }
+            .calendar-grid { display: flex; flex-direction: column; background: transparent; border: none; gap: 10px; }
+            .time-cell, .calendar-grid > .header-cell { display: none !important; }
+            .mobile-day-group { background: var(--card-color); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.02); display: flex; flex-direction: column; }
+            .mobile-day-group .mobile-group-header { background: #f1f5f9; padding: 12px 15px; font-weight: 700; font-size: 1rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); color: var(--text-main); cursor: pointer; user-select: none; }
+            .mobile-day-group .mobile-group-header::after { content: '▼'; font-size: 0.75rem; color: #64748b; transition: transform 0.2s ease; }
+            .mobile-day-group.collapsed .mobile-group-header::after { content: '▶'; }
+            .mobile-day-group .mobile-group-header.today-highlight { background: var(--primary-light); color: var(--primary); border-bottom-color: var(--border-color); }
+            .mobile-day-group .mobile-group-header.today-highlight::after { color: var(--primary); }
+            .mobile-day-group .mobile-group-header .header-date { font-size: 0.85rem; color: #64748b; font-weight: 500; margin-left: auto; margin-right: 15px; }
+            .mobile-day-group .mobile-group-header.today-highlight .header-date { color: var(--primary); font-weight: 700; }
+            .mobile-day-events { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+            .mobile-day-group.collapsed .mobile-day-events { display: none !important; }
+            .mobile-day-group.collapsed { border-bottom-width: 1px; }
+            .cell { border: none !important; padding: 0 !important; min-height: auto !important; background: transparent !important; }
+            .cell:empty { display: none; }
+            .mobile-day-group.empty-day { opacity: 0.8; }
+            .mobile-no-events-stub { font-size: 0.8rem; color: #94a3b8; text-align: center; padding: 6px 0; font-style: italic; }
+        }
+
+        .event-card {
+            background: var(--primary-light);
+            border-left: 4px solid var(--primary);
+            padding: 6px;
+            border-radius: 4px;
+            margin-bottom: 6px;
+            font-size: 0.78rem;
+            position: relative;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            transition: transform 0.15s ease;
+            overflow: hidden;
+        }
+        .event-card:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
+        .event-card:last-child { margin-bottom: 0; }
+        .event-card.assignment-type { background: var(--assignment-light); border-left-color: var(--assignment); }
+        .event-card.class-type { background: var(--class-light); border-left-color: var(--class); }
+        .event-card.work-type { background: var(--work-light); border-left-color: var(--work); }
+        
+        .event-card.completed-state { background: var(--completed-bg) !important; border-left-color: var(--completed-text) !important; color: var(--completed-text); }
+        .event-card.completed-state .event-title { text-decoration: line-through; color: var(--completed-text); }
+        .event-card.completed-state .event-time, .event-card.completed-state .event-meta { color: var(--completed-text); }
+
+        /* Locked Element States */
+        .event-card.locked-state, .sidebar-item.locked-state { background: var(--locked-bg) !important; border-left-color: var(--locked-text) !important; border-color: var(--locked-border) !important; color: var(--locked-text) !important; opacity: 0.75; }
+        .event-card.locked-state .event-title, .sidebar-item.locked-state .item-title { color: var(--locked-text) !important; }
+        .event-card.locked-state .event-time, .event-card.locked-state .event-meta, .sidebar-item.locked-state .item-date, .sidebar-item.locked-state .item-subtext { color: var(--locked-text) !important; }
+        .locked-badge { font-weight: 700; text-transform: uppercase; font-size: 0.68rem; display: inline-block; padding: 1px 4px; border-radius: 3px; background: #e2e8f0; color: #475569; margin-top: 2px; }
+
+        .event-title { font-weight: 600; margin-bottom: 2px; color: var(--text-main); padding-right: 12px; line-height: 1.2; }
+        .event-time { color: #475569; font-size: 0.72rem; font-weight: 500; margin-bottom: 4px; }
+        .event-meta { font-size: 0.72rem; color: #64748b; margin-top: 2px; line-height: 1.2; }
+        .event-notes { border-top: 1px dashed var(--border-color); padding-top: 4px; margin-top: 4px; font-style: italic; }
+        .card-checkbox { margin-right: 4px; vertical-align: middle; cursor: pointer; }
+
+        .delete-btn { position: absolute; top: 4px; right: 4px; background: none; color: #94a3b8; border: none; padding: 0; cursor: pointer; font-size: 0.85rem; z-index: 2; line-height: 1; }
+        .delete-btn:hover { color: var(--danger); }
+
+        .event-card.clash { background: var(--danger-bg); border-left-color: var(--danger); animation: shake 0.3s ease-in-out; }
+        .clash-warning { color: var(--danger); font-size: 0.65rem; font-weight: bold; margin-top: 4px; }
+
+        .assignment-sidebar { background: var(--card-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; }
+        .assignment-sidebar h2 { margin: 0 0 12px 0; font-size: 1.1rem; font-weight: 700; color: var(--text-main); border-bottom: 2px solid var(--border-color); padding-bottom: 8px;}
+        .assignment-list { display: flex; flex-direction: column; gap: 8px; max-height: 500px; overflow-y: auto; padding-right: 2px; }
+        .sidebar-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); font-size: 0.85rem; position: relative; transition: transform 0.15s ease; }
+        .sidebar-item:hover { transform: translateX(1px); }
+        .sidebar-item.assignment-done { background: var(--completed-bg); color: var(--completed-text); border-color: #cbd5e1; }
+        .sidebar-item.assignment-done .item-title { text-decoration: line-through; }
+        .item-chk { width: 16px; height: 16px; margin-top: 2px; cursor: pointer; z-index: 2; }
+        .item-details { flex-grow: 1; min-width: 0; }
+        .item-title { font-weight: 600; margin-bottom: 2px; padding-right: 15px; color: var(--text-main); word-break: break-word; }
+        .item-date { font-size: 0.75rem; color: var(--assignment); font-weight: 600; }
+        .sidebar-item.assignment-done .item-date { color: var(--completed-text); }
+        .item-subtext { font-size: 0.75rem; color: #64748b; margin-top: 2px; word-break: break-word; }
+
+        .storage-panel { background: var(--card-color); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; margin-top: 25px; background: #f1f5f9; align-items: center; justify-content: space-between; }
+        
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(2px);
+            display: flex; align-items: center; justify-content: center; z-index: 9999;
+        }
+        .modal-box {
+            background: var(--card-color); border: 1px solid var(--border-color);
+            padding: 20px; border-radius: 12px; max-width: 420px; width: 90%;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+        .modal-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 10px; color: var(--text-main); }
+        .modal-body { font-size: 0.88rem; color: #475569; margin-bottom: 20px; line-height: 1.4; }
+        .modal-actions { display: flex; gap: 10px; flex-direction: column; }
+        @media (min-width: 480px) { .modal-actions { flex-direction: row; justify-content: flex-end; } }
+        .modal-btn { padding: 10px 16px; font-size: 0.85rem; font-weight: 600; border-radius: 6px; cursor: pointer; border: 1px solid var(--border-color); background: var(--card-color); color: var(--text-main); }
+        .modal-btn:hover { background: #f1f5f9; }
+        .modal-btn.danger { background: var(--danger); color: white; border: none; }
+        .modal-btn.danger:hover { background: #dc2626; }
+        .modal-btn.primary-btn { background: var(--primary); color: white; border: none; }
+        .modal-btn.primary-btn:hover { background: #2563eb; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-2px); }
+            75% { transform: translateX(2px); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Weekly Dashboard</h1>
+        <div class="nav-controls">
+            <button class="nav-btn" onclick="navigateWeek(-1)">◀ Prev</button>
+            <button class="nav-btn" onclick="goToCurrentWeek()">Today</button>
+            <div class="current-week-label" id="weekLabel">Week of...</div>
+            <button class="nav-btn" onclick="navigateWeek(1)">Next ▶</button>
+        </div>
+    </header>
+
+    <div class="form-container">
+        <div class="form-tabs">
+            <button class="tab-btn active" onclick="switchTab('event')">📅 Add General Event</button>
+            <button class="tab-btn assignment-tab" onclick="switchTab('assignment')">📝 Add Assignment Due Date</button>
+        </div>
+        <div class="form-panel">
+            <div id="eventForm" class="form-content active">
+                <div class="form-group">
+                    <label for="title">Event Name</label>
+                    <input type="text" id="title" placeholder="e.g., Fluid Mechanics, Work Shift">
+                </div>
+                <div class="form-group small">
+                    <label for="eventCategory">Category</label>
+                    <select id="eventCategory">
+                        <option value="class">🎓 Class</option>
+                        <option value="work">💼 Work</option>
+                    </select>
+                </div>
+                <div class="form-group small">
+                    <label for="day">Day of Week</label>
+                    <select id="day">
+                        <option value="1">Monday</option>
+                        <option value="2">Tuesday</option>
+                        <option value="3">Wednesday</option>
+                        <option value="4">Thursday</option>
+                        <option value="5">Friday</option>
+                        <option value="6">Saturday</option>
+                        <option value="0">Sunday</option>
+                    </select>
+                </div>
+                <div class="form-group small">
+                    <label for="start">Start Time</label>
+                    <select id="start"></select>
+                </div>
+                <div class="form-group small">
+                    <label for="end">End Time</label>
+                    <select id="end"></select>
+                </div>
+                <div class="form-group">
+                    <label for="location">Location</label>
+                    <input type="text" id="location" placeholder="Optional Room/Link">
+                </div>
+                <div class="form-group">
+                    <label for="notes">Notes</label>
+                    <input type="text" id="notes" placeholder="Optional text">
+                </div>
+                <div class="form-group checkbox">
+                    <input type="checkbox" id="isRecurring" onchange="toggleRecurrenceInput()">
+                    <label for="isRecurring" style="cursor: pointer; font-size: 0.8rem;">Repeat Weekly</label>
+                </div>
+                <div class="form-group small" id="weeksGroup" style="display: none;">
+                    <label for="weeksCount">Weeks</label>
+                    <input type="number" id="weeksCount" min="2" max="52" value="12" style="width: 60px;">
+                </div>
+                <div style="display: flex; gap: 8px;" id="eventFormActions">
+                    <button class="submit-btn" id="eventSubmitBtn" onclick="addEvent()">Add Event</button>
+                    <button class="secondary-btn" id="eventCancelBtn" style="display: none; height: 38px;" onclick="cancelEdit()">Cancel</button>
+                </div>
+            </div>
+
+            <div id="assignmentForm" class="form-content">
+                <div class="form-group">
+                    <label for="assignTitle">Assignment Title</label>
+                    <input type="text" id="assignTitle" placeholder="e.g., Physics Problem Set 3">
+                </div>
+                <div class="form-group">
+                    <label for="availDate">Available Date</label>
+                    <input type="date" id="availDate">
+                </div>
+                <div class="form-group small">
+                    <label for="availTime">Available Time</label>
+                    <select id="availTime"></select>
+                </div>
+                <div class="form-group">
+                    <label for="assignDate">Due Date</label>
+                    <input type="date" id="assignDate">
+                </div>
+                <div class="form-group small">
+                    <label for="assignTime">Due Time</label>
+                    <select id="assignTime"></select>
+                </div>
+                <div class="form-group">
+                    <label for="assignNotes">Requirements/Notes</label>
+                    <input type="text" id="assignNotes" placeholder="Optional details">
+                </div>
+                <div style="display: flex; gap: 8px;" id="assignmentFormActions">
+                    <button class="submit-btn assign" id="assignSubmitBtn" onclick="addAssignment()">Add Assignment</button>
+                    <button class="secondary-btn" id="assignCancelBtn" style="display: none; height: 38px;" onclick="cancelEdit()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls-toolbar">
+        <div class="filter-panel">
+            <span class="filter-label">Display Filters:</span>
+            <label class="filter-opt">
+                <input type="checkbox" id="filterClasses" checked onchange="renderCalendar()">
+                <span style="color: var(--class);">Classes</span>
+            </label>
+            <label class="filter-opt">
+                <input type="checkbox" id="filterWork" checked onchange="renderCalendar()">
+                <span style="color: var(--work);">Work</span>
+            </label>
+            <label class="filter-opt">
+                <input type="checkbox" id="filterAssignments" checked onchange="renderCalendar()">
+                <span style="color: var(--assignment);">Assignments</span>
+            </label>
+        </div>
+        <button class="mobile-master-toggle" onclick="toggleAllMobileDays()">↔ Toggle All Days (Expand/Collapse)</button>
+    </div>
+
+    <div class="dashboard-layout">
+        <div class="calendar-grid-wrapper">
+            <div class="calendar-grid" id="calendar"></div>
+        </div>
+        
+        <div class="sidebar-wrapper">
+            <div class="assignment-sidebar">
+                <h2>📋 Assignment Tracker</h2>
+                <div class="assignment-list" id="sidebarList"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="storage-panel">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-weight: 600; font-size: 0.9rem;">Backup & Reliability Shield</span>
+            <span style="font-size: 0.75rem; color: #64748b;">All updates save directly to LocalStorage. Download clear snapshots below to protect against system file purges.</span>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button class="secondary-btn" onclick="exportData()">💾 Save Schedule Backup File</button>
+            <button class="secondary-btn" onclick="document.getElementById('importFile').click()">📂 Load Backup File</button>
+            <input type="file" id="importFile" style="display: none;" accept=".json" onchange="importData(event)">
+        </div>
+    </div>
+</div>
+
+<div id="modalContainer"></div>
+
+<script>
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    
+    // Default system parameters
+    const baseStartHour = 8;
+    const baseEndHour = 20;
+
+    let currentAnchorDate = new Date(); 
+    let events = JSON.parse(localStorage.getItem('calendar_events_v2')) || [];
+    let editingEventId = null; 
+    
+    let mobileCollapseState = {}; 
+    let masterStateOpen = false;
+
+    function init() {
+        const today = new Date();
+        document.getElementById('assignDate').value = today.toISOString().split('T')[0];
+        document.getElementById('availDate').value = today.toISOString().split('T')[0];
+
+        const startSelect = document.getElementById('start');
+        const endSelect = document.getElementById('end');
+        const assignTimeSelect = document.getElementById('assignTime');
+        const availTimeSelect = document.getElementById('availTime');
+
+        // Populate choice selectors across full 24-hour pool for robust user entry
+        for (let h = 0; h < 24; h++) {
+            for (let m of ['00', '30']) {
+                let timeStr = `${h.toString().padStart(2, '0')}:${m}`;
+                startSelect.add(new Option(timeStr, timeStr));
+                assignTimeSelect.add(new Option(timeStr, timeStr));
+                availTimeSelect.add(new Option(timeStr, timeStr));
+                
+                let nextH = m === '30' ? h + 1 : h;
+                let nextM = m === '30' ? '00' : '30';
+                if (nextH <= 24) {
+                    let endStr = `${nextH.toString().padStart(2, '0')}:${nextM}`;
+                    endSelect.add(new Option(endStr, endStr));
+                }
+            }
+        }
+        startSelect.value = "08:00";
+        endSelect.value = "09:00";
+        assignTimeSelect.value = "12:00";
+        availTimeSelect.value = "08:00";
+
+        window.addEventListener('resize', debounce(renderCalendar, 150));
+        renderCalendar();
+    }
+
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+
+    function switchTab(type) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.form-content').forEach(c => c.classList.remove('active'));
+        
+        if (type === 'event') {
+            document.querySelectorAll('.tab-btn')[0].classList.add('active');
+            document.getElementById('eventForm').classList.add('active');
+        } else {
+            document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            document.getElementById('assignmentForm').classList.add('active');
+        }
+    }
+
+    function toggleRecurrenceInput() {
+        const checkbox = document.getElementById('isRecurring');
+        document.getElementById('weeksGroup').style.display = checkbox.checked ? 'flex' : 'none';
+    }
+
+    function getMonday(d) {
+        let date = new Date(d);
+        let day = date.getDay();
+        let diff = date.getDate() - day + (day === 0 ? -6 : 1);
+        return new Date(date.setDate(diff));
+    }
+
+    function formatDateShort(date) {
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    function getDateString(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function navigateWeek(direction) {
+        currentAnchorDate.setDate(currentAnchorDate.getDate() + (direction * 7));
+        mobileCollapseState = {}; 
+        renderCalendar();
+    }
+
+    function goToCurrentWeek() {
+        currentAnchorDate = new Date();
+        mobileCollapseState = {};
+        renderCalendar();
+    }
+
+    function isAssignmentLocked(assignment) {
+        if (!assignment.availDate) return false; 
+        const now = new Date();
+        const availDateTime = new Date(`${assignment.availDate}T${assignment.availTime || '00:00'}:00`);
+        return now < availDateTime;
+    }
+
+    function toggleComplete(id) {
+        const index = events.findIndex(e => e.id === id);
+        if(index !== -1) {
+            if (events[index].type === 'assignment' && isAssignmentLocked(events[index])) {
+                return; 
+            }
+            events[index].completed = !events[index].completed;
+            saveAndRefresh();
+        }
+    }
+
+    function toggleMobileDay(dateStr) {
+        mobileCollapseState[dateStr] = !mobileCollapseState[dateStr];
+        renderCalendar();
+    }
+
+    function toggleAllMobileDays() {
+        masterStateOpen = !masterStateOpen;
+        const monday = getMonday(currentAnchorDate);
+        const dayOrder = [1, 2, 3, 4, 5, 6, 0];
+        
+        dayOrder.forEach((d, idx) => {
+            let colDate = new Date(monday);
+            colDate.setDate(monday.getDate() + idx);
+            let targetStr = getDateString(colDate);
+            mobileCollapseState[targetStr] = !masterStateOpen; 
+        });
+        renderCalendar();
+    }
+
+    function editEvent(id, e) {
+        if (e && (e.target.classList.contains('delete-btn') || e.target.classList.contains('card-checkbox') || e.target.classList.contains('item-chk'))) return;
+
+        const item = events.find(x => x.id === id);
+        if (!item) return;
+
+        if (item.type === 'assignment') {
+            switchTab('assignment');
+            document.getElementById('assignTitle').value = item.title;
+            document.getElementById('assignDate').value = item.date;
+            document.getElementById('assignTime').value = item.start;
+            document.getElementById('assignNotes').value = item.notes;
+            
+            document.getElementById('availDate').value = item.availDate || item.date;
+            document.getElementById('availTime').value = item.availTime || "08:00";
+            
+            const submitBtn = document.getElementById('assignSubmitBtn');
+            submitBtn.innerText = "Update Assignment";
+            submitBtn.setAttribute('onclick', `saveAssignmentEdit('${id}')`);
+            document.getElementById('assignCancelBtn').style.display = 'inline-block';
+            
+            document.querySelector('.form-container').scrollIntoView({ behavior: 'smooth' });
+            return;
+        }
+
+        switchTab('event');
+        
+        const relatedChunks = item.groupId 
+            ? events.filter(x => x.groupId === item.groupId)
+            : events.filter(x => x.title === item.title && x.date === item.date && x.category === item.category);
+
+        relatedChunks.sort((a, b) => a.start.localeCompare(b.start));
+        const trueStart = relatedChunks[0].start;
+        const trueEnd = relatedChunks[relatedChunks.length - 1].end;
+
+        document.getElementById('title').value = item.title;
+        document.getElementById('eventCategory').value = item.category || 'class';
+        document.getElementById('day').value = item.day;
+        document.getElementById('start').value = trueStart;
+        document.getElementById('end').value = trueEnd;
+        document.getElementById('location').value = item.location || '';
+        document.getElementById('notes').value = item.notes || '';
+        
+        const isRecur = !!item.groupId;
+        document.getElementById('isRecurring').checked = isRecur;
+        toggleRecurrenceInput();
+        
+        editingEventId = item.groupId ? item.groupId : item.id;
+
+        document.getElementById('eventSubmitBtn').innerText = "Update Event";
+        document.getElementById('eventSubmitBtn').setAttribute('onclick', 'saveEventEdit()');
+        document.getElementById('eventCancelBtn').style.display = 'inline-block';
+        
+        document.querySelector('.form-container').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function cancelEdit() {
+        editingEventId = null;
+        document.getElementById('title').value = '';
+        document.getElementById('location').value = '';
+        document.getElementById('notes').value = '';
+        document.getElementById('isRecurring').checked = false;
+        toggleRecurrenceInput();
+        
+        document.getElementById('eventSubmitBtn').innerText = "Add Event";
+        document.getElementById('eventSubmitBtn').setAttribute('onclick', 'addEvent()');
+        document.getElementById('eventCancelBtn').style.display = 'none';
+
+        document.getElementById('assignTitle').value = '';
+        document.getElementById('assignNotes').value = '';
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('assignDate').value = today;
+        document.getElementById('availDate').value = today;
+        
+        const assignBtn = document.getElementById('assignSubmitBtn');
+        assignBtn.innerText = "Add Assignment";
+        assignBtn.setAttribute('onclick', 'addAssignment()');
+        document.getElementById('assignCancelBtn').style.display = 'none';
+    }
+
+    function saveEventEdit() {
+        if (!editingEventId) return;
+        events = events.filter(x => x.id !== editingEventId && x.groupId !== editingEventId);
+        editingEventId = null;
+        addEvent(); 
+        document.getElementById('eventSubmitBtn').innerText = "Add Event";
+        document.getElementById('eventSubmitBtn').setAttribute('onclick', 'addEvent()');
+        document.getElementById('eventCancelBtn').style.display = 'none';
+    }
+
+    function saveAssignmentEdit(id) {
+        events = events.filter(x => x.id !== id);
+        addAssignment();
+        cancelEdit();
+    }
+
+    function addAssignment() {
+        const title = document.getElementById('assignTitle').value.trim();
+        const dateRaw = document.getElementById('assignDate').value;
+        const time = document.getElementById('assignTime').value;
+        const notes = document.getElementById('assignNotes').value.trim();
+        
+        const availDate = document.getElementById('availDate').value;
+        const availTime = document.getElementById('availTime').value;
+
+        if (!title || !dateRaw) return alert('Please input at least an assignment title and due date.');
+
+        const parseDate = new Date(dateRaw + 'T00:00:00');
+        const dayOfWeek = parseDate.getDay();
+
+        events.push({
+            id: Date.now().toString(),
+            type: 'assignment',
+            title,
+            day: dayOfWeek.toString(),
+            date: dateRaw, 
+            start: time,
+            end: time,
+            notes,
+            availDate,
+            availTime,
+            completed: false,
+            hasClash: false
+        });
+        saveAndRefresh();
+
+        document.getElementById('assignTitle').value = '';
+        document.getElementById('assignNotes').value = '';
+    }
+
+    function addEvent() {
+        const title = document.getElementById('title').value.trim();
+        const day = parseInt(document.getElementById('day').value);
+        const category = document.getElementById('eventCategory').value;
+        const start = document.getElementById('start').value;
+        const end = document.getElementById('end').value;
+        const location = document.getElementById('location').value.trim();
+        const notes = document.getElementById('notes').value.trim();
+        const isRecurring = document.getElementById('isRecurring').checked;
+        const weeksCount = parseInt(document.getElementById('weeksCount').value) || 1;
+
+        if (!title) return alert('Please enter an event name.');
+        if (start >= end) return alert('End time must be after start time.');
+
+        const monday = getMonday(currentAnchorDate);
+        const dayOrder = [1, 2, 3, 4, 5, 6, 0];
+        const colIndex = dayOrder.indexOf(day);
+        
+        let anchorDate = new Date(monday);
+        anchorDate.setDate(monday.getDate() + colIndex);
+
+        const loops = isRecurring ? weeksCount : 1;
+        const groupId = isRecurring ? Date.now().toString() : null;
+
+        const startH = parseInt(start.split(':')[0]);
+        const endH = parseInt(end.split(':')[0]);
+        const endM = parseInt(end.split(':')[1]);
+
+        const maxHour = endM > 0 ? endH : endH - 1;
+
+        for (let i = 0; i < loops; i++) {
+            let eventDate = new Date(anchorDate);
+            eventDate.setDate(anchorDate.getDate() + (i * 7));
+
+            for (let h = startH; h <= maxHour; h++) {
+                const chunkStart = h === startH ? start : `${h.toString().padStart(2, '0')}:00`;
+                const chunkEnd = h === maxHour ? end : `${(h + 1).toString().padStart(2, '0')}:00`;
+
+                events.push({
+                    id: `${Date.now()}-${i}-${h}-${Math.random()}`,
+                    groupId,
+                    type: 'event',
+                    category,
+                    title,
+                    day: day.toString(),
+                    date: getDateString(eventDate),
+                    start: chunkStart,
+                    end: chunkEnd,
+                    location,
+                    notes,
+                    completed: false,
+                    hasClash: false
+                });
+            }
+        }
+
+        saveAndRefresh();
+
+        document.getElementById('title').value = '';
+        document.getElementById('location').value = '';
+        document.getElementById('notes').value = '';
+        document.getElementById('isRecurring').checked = false;
+        toggleRecurrenceInput();
+    }
+
+    function closeModal() {
+        document.getElementById('modalContainer').innerHTML = '';
+    }
+
+    function handleDeleteClick(id, groupId, dateStr, titleText) {
+        const modalContainer = document.getElementById('modalContainer');
+        
+        if (groupId) {
+            modalContainer.innerHTML = `
+                <div class="modal-overlay" onclick="closeModal()">
+                    <div class="modal-box" onclick="event.stopPropagation()">
+                        <div class="modal-title">Delete Recurring Event</div>
+                        <div class="modal-body">
+                            <strong>"${titleText}"</strong> is part of a weekly recurring series. Would you like to remove just this date, or the entire series?
+                        </div>
+                        <div class="modal-actions">
+                            <button class="modal-btn danger" onclick="executeDelete('one', '${id}', '${groupId}', '${dateStr}')">One (Just ${dateStr})</button>
+                            <button class="modal-btn danger" onclick="executeDelete('all', '${id}', '${groupId}', '${dateStr}')">All (Entire Series)</button>
+                            <button class="modal-btn" onclick="closeModal()">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            modalContainer.innerHTML = `
+                <div class="modal-overlay" onclick="closeModal()">
+                    <div class="modal-box" onclick="event.stopPropagation()">
+                        <div class="modal-title">Confirm Deletion</div>
+                        <div class="modal-body">
+                            Are you sure you want to delete the item <strong>"${titleText}"</strong>? This action cannot be undone.
+                        </div>
+                        <div class="modal-actions">
+                            <button class="modal-btn danger" onclick="executeDelete('single', '${id}', null, null)">Yes, Delete</button>
+                            <button class="modal-btn" onclick="closeModal()">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    function executeDelete(mode, id, groupId, dateStr) {
+        if (mode === 'one') {
+            events = events.filter(e => !(e.groupId === groupId && e.date === dateStr));
+        } else if (mode === 'all') {
+            events = events.filter(e => e.groupId !== groupId);
+        } else if (mode === 'single') {
+            events = events.filter(e => e.id !== id);
+        }
+        closeModal();
+        saveAndRefresh();
+    }
+
+    function detectClashes(columnDates) {
+        events.forEach(e => e.hasClash = false);
+        for (let i = 0; i < events.length; i++) {
+            for (let j = i + 1; j < events.length; j++) {
+                let a = events[i], b = events[j];
+                if (a.completed || b.completed || a.type === 'assignment' || b.type === 'assignment') continue;
+
+                if (a.day === b.day && a.date === b.date && a.start < b.end && b.start < a.end) {
+                    a.hasClash = true; b.hasClash = true;
+                }
+            }
+        }
+    }
+
+    function getFilteredEvents() {
+        const showClasses = document.getElementById('filterClasses').checked;
+        const showWork = document.getElementById('filterWork').checked;
+        const showAssignments = document.getElementById('filterAssignments').checked;
+        
+        return events.filter(e => {
+            if (e.type === 'assignment' && !showAssignments) return false;
+            if (e.type === 'event') {
+                if (e.category === 'class' && !showClasses) return false;
+                if (e.category === 'work' && !showWork) return false;
+            }
+            return true;
+        });
+    }
+
+    function renderCalendar() {
+        const cal = document.getElementById('calendar');
+        cal.innerHTML = ''; 
+
+        const monday = getMonday(currentAnchorDate);
+        const todayStr = new Date().toDateString();
+
+        const sundayOfView = new Date(monday);
+        sundayOfView.setDate(monday.getDate() + 6);
+        document.getElementById('weekLabel').innerText = `${formatDateShort(monday)} – ${formatDateShort(sundayOfView)}`;
+
+        const dayOrder = [1, 2, 3, 4, 5, 6, 0];
+        const columnDates = dayOrder.map((d, index) => {
+            let colDate = new Date(monday);
+            colDate.setDate(monday.getDate() + index);
+            return colDate;
+        });
+
+        // Parse array into strings to cleanly check targeted date range bounds
+        const allowedWeekStrings = columnDates.map(d => getDateString(d));
+
+        detectClashes(columnDates);
+        renderSidebar();
+
+        const activeEvents = getFilteredEvents();
+
+        // Dynamically compute the current week's boundary hours
+        let currentStartHour = baseStartHour;
+        let currentEndHour = baseEndHour;
+
+        // Scan the data layout matching active items strictly in the visible week range
+        activeEvents.forEach(e => {
+            if (allowedWeekStrings.includes(e.date)) {
+                if (e.start) {
+                    const sHour = parseInt(e.start.split(':')[0]);
+                    if (sHour < currentStartHour) currentStartHour = sHour;
+                }
+                if (e.end) {
+                    const eHour = parseInt(e.end.split(':')[0]);
+                    const eMin = parseInt(e.end.split(':')[1] || 0);
+                    // Account for partial hour block adjustments
+                    const targetedCeil = eMin > 0 ? eHour + 1 : eHour;
+                    if (targetedCeil > currentEndHour) currentEndHour = targetedCeil;
+                }
+            }
+        });
+
+        // Ensure boundary validation rules
+        if (currentStartHour < 0) currentStartHour = 0;
+        if (currentEndHour > 24) currentEndHour = 24;
+
+        const isMobile = window.innerWidth <= 1149;
+
+        if (isMobile) {
+            columnDates.forEach((date, index) => {
+                const dayValue = dayOrder[index];
+                const isToday = date.toDateString() === todayStr;
+                const targetDateStr = getDateString(date);
+
+                if (mobileCollapseState[targetDateStr] === undefined) {
+                    mobileCollapseState[targetDateStr] = !isToday; 
+                }
+
+                const isCollapsed = mobileCollapseState[targetDateStr];
+
+                const dayGroup = document.createElement('div');
+                dayGroup.className = `mobile-day-group ${isCollapsed ? 'collapsed' : ''}`;
+
+                const headerCell = document.createElement('div');
+                headerCell.className = `mobile-group-header ${isToday ? 'today-highlight' : ''}`;
+                headerCell.setAttribute('onclick', `toggleMobileDay('${targetDateStr}')`);
+                headerCell.innerHTML = `
+                    <div>${days[dayValue]}</div>
+                    <div class="header-date">${formatDateShort(date)}</div>
+                `;
+                dayGroup.appendChild(headerCell);
+
+                const eventsContainer = document.createElement('div');
+                eventsContainer.className = 'mobile-day-events';
+
+                const dayEvents = activeEvents.filter(e => parseInt(e.day) === dayValue && (!e.date || e.date === targetDateStr));
+                dayEvents.sort((a, b) => a.start.localeCompare(b.start));
+
+                if(dayEvents.length === 0) {
+                    dayGroup.classList.add('empty-day');
+                    eventsContainer.innerHTML = `<div class="mobile-no-events-stub">No active items visible</div>`;
+                } else {
+                    dayEvents.forEach(e => {
+                        const isAssign = e.type === 'assignment';
+                        const isLocked = isAssign && isAssignmentLocked(e);
+                        
+                        let dynamicTypeClass = 'class-type'; 
+                        if (isAssign) dynamicTypeClass = 'assignment-type';
+                        else if (e.category === 'work') dynamicTypeClass = 'work-type';
+
+                        let emoji = '🎓 ';
+                        if (isAssign) emoji = isLocked ? '🔒 ' : '📝 ';
+                        else if (e.category === 'work') emoji = '💼 ';
+
+                        const card = document.createElement('div');
+                        card.className = `event-card ${dynamicTypeClass} ${e.completed ? 'completed-state' : ''} ${isLocked ? 'locked-state' : ''} ${e.hasClash ? 'clash' : ''}`;
+                        card.setAttribute('onclick', `editEvent('${e.id}', event)`);
+                        card.style.cursor = 'pointer';
+                        
+                        const safeTitle = e.title.replace(/'/g, "\\'");
+                        const deleteAction = `handleDeleteClick('${e.id}', ${e.groupId ? `'${e.groupId}'` : 'null'}, '${e.date}', '${safeTitle}')`;
+                        
+                        card.innerHTML = `
+                            <button class="delete-btn" onclick="${deleteAction}">×</button>
+                            <div class="event-title">
+                                ${isAssign ? `<input type="checkbox" class="card-checkbox" ${e.completed ? 'checked' : ''} ${isLocked ? 'disabled' : ''} onclick="toggleComplete('${e.id}')">` : ''}
+                                ${emoji}${e.title}
+                            </div>
+                            <div class="event-time">${isAssign ? 'Due at ' + e.start : e.start + ' - ' + e.end}</div>
+                            ${isLocked ? `<div class="locked-badge">Not yet available</div>` : ''}
+                            ${e.location ? `<div class="event-meta">📍 ${e.location}</div>` : ''}
+                            ${e.notes ? `<div class="event-meta event-notes">${e.notes}</div>` : ''}
+                            ${e.hasClash ? '<div class="clash-warning">⚠️ Schedule Clash</div>' : ''}
+                        `;
+                        eventsContainer.appendChild(card);
+                    });
+                }
+
+                dayGroup.appendChild(eventsContainer);
+                cal.appendChild(dayGroup);
+            });
+
+        } else {
+            cal.appendChild(createCell('', 'header-cell')); 
+            
+            columnDates.forEach((date, index) => {
+                const isToday = date.toDateString() === todayStr;
+                const headerCell = document.createElement('div');
+                headerCell.className = `header-cell ${isToday ? 'today-highlight' : ''}`;
+                headerCell.innerHTML = `
+                    <div>${days[dayOrder[index]]}</div>
+                    <div class="header-date">${formatDateShort(date)}</div>
+                `;
+                cal.appendChild(headerCell);
+            });
+
+            // Loop structural configuration utilizes computed variable dimensions safely
+            for (let h = currentStartHour; h < currentEndHour; h++) {
+                cal.appendChild(createCell(`${h.toString().padStart(2, '0')}:00`, 'time-cell'));
+
+                columnDates.forEach((date, index) => {
+                    const dayValue = dayOrder[index];
+                    const isToday = date.toDateString() === todayStr;
+                    const targetDateStr = getDateString(date);
+                    
+                    const cell = document.createElement('div');
+                    cell.className = `cell ${isToday ? 'today-cell' : ''}`;
+                    
+                    const currentEvents = activeEvents.filter(e => 
+                        parseInt(e.day) === dayValue && 
+                        parseInt(e.start.split(':')[0]) === h &&
+                        (!e.date || e.date === targetDateStr)
+                    );
+                    
+                    currentEvents.forEach(e => {
+                        const isAssign = e.type === 'assignment';
+                        const isLocked = isAssign && isAssignmentLocked(e);
+                        
+                        let dynamicTypeClass = 'class-type'; 
+                        if (isAssign) dynamicTypeClass = 'assignment-type';
+                        else if (e.category === 'work') dynamicTypeClass = 'work-type';
+
+                        let emoji = '🎓 ';
+                        if (isAssign) emoji = isLocked ? '🔒 ' : '📝 ';
+                        else if (e.category === 'work') emoji = '💼 ';
+
+                        const card = document.createElement('div');
+                        card.className = `event-card ${dynamicTypeClass} ${e.completed ? 'completed-state' : ''} ${isLocked ? 'locked-state' : ''} ${e.hasClash ? 'clash' : ''}`;
+                        card.setAttribute('onclick', `editEvent('${e.id}', event)`);
+                        card.style.cursor = 'pointer';
+                        
+                        const safeTitle = e.title.replace(/'/g, "\\'");
+                        const deleteAction = `handleDeleteClick('${e.id}', ${e.groupId ? `'${e.groupId}'` : 'null'}, '${e.date}', '${safeTitle}')`;
+                            
+                        card.innerHTML = `
+                            <button class="delete-btn" onclick="${deleteAction}">×</button>
+                            <div class="event-title">
+                                ${isAssign ? `<input type="checkbox" class="card-checkbox" ${e.completed ? 'checked' : ''} ${isLocked ? 'disabled' : ''} onclick="toggleComplete('${e.id}')">` : ''}
+                                ${emoji}${e.title}
+                            </div>
+                            <div class="event-time">${isAssign ? 'Due at ' + e.start : e.start + ' - ' + e.end}</div>
+                            ${isLocked ? `<div class="locked-badge">Not yet available</div>` : ''}
+                            ${e.location ? `<div class="event-meta">📍 ${e.location}</div>` : ''}
+                            ${e.notes ? `<div class="event-meta event-notes">${e.notes}</div>` : ''}
+                            ${e.hasClash ? '<div class="clash-warning">⚠️ Schedule Clash</div>' : ''}
+                        `;
+                        cell.appendChild(card);
+                    });
+
+                    cal.appendChild(cell);
+                });
+            }
+        }
+    }
+
+    function renderSidebar() {
+        const container = document.getElementById('sidebarList');
+        container.innerHTML = '';
+
+        const assignments = events.filter(e => e.type === 'assignment');
+        assignments.sort((a, b) => {
+            if (a.date !== b.date) return new Date(a.date) - new Date(b.date);
+            return a.start.localeCompare(b.start);
+        });
+
+        if(assignments.length === 0) {
+            container.innerHTML = `<div style="font-size:0.8rem; color:#94a3b8; text-align:center; padding: 20px 0;">No assignments logged yet.</div>`;
+            return;
+        }
+
+        assignments.forEach(a => {
+            const dateObj = new Date(a.date + 'T00:00:00');
+            const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const isLocked = isAssignmentLocked(a);
+            
+            const div = document.createElement('div');
+            div.className = `sidebar-item ${a.completed ? 'assignment-done' : ''} ${isLocked ? 'locked-state' : ''}`;
+            div.setAttribute('onclick', `editEvent('${a.id}', event)`);
+            div.style.cursor = 'pointer';
+            
+            const safeTitle = a.title.replace(/'/g, "\\'");
+            const deleteAction = `handleDeleteClick('${a.id}', null, '${a.date}', '${safeTitle}')`;
+
+            div.innerHTML = `
+                <input type="checkbox" class="item-chk" ${a.completed ? 'checked' : ''} ${isLocked ? 'disabled' : ''} onclick="toggleComplete('${a.id}')">
+                <div class="item-details">
+                    <div class="item-title">${isLocked ? '🔒 ' : ''}${a.title}</div>
+                    <div class="item-date">📅 Due: ${formattedDate} @ ${a.start}</div>
+                    ${isLocked ? `<div class="locked-badge" style="margin-bottom:4px;">Not yet available</div>` : ''}
+                    ${a.notes ? `<div class="item-subtext">📌 ${a.notes}</div>` : ''}
+                </div>
+                <button class="delete-btn" style="top:8px; right:8px;" onclick="${deleteAction}">×</button>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function createCell(text, className) {
+        const div = document.createElement('div');
+        div.className = className;
+        div.innerText = text;
+        return div;
+    }
+
+    function saveAndRefresh() {
+        localStorage.setItem('calendar_events_v2', JSON.stringify(events));
+        renderCalendar();
+    }
+
+    function exportData() {
+        if (events.length === 0) return alert("Your schedule data array is empty.");
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(events, null, 2));
+        const anchor = document.createElement('a');
+        anchor.setAttribute("href", dataStr);
+        anchor.setAttribute("download", "academic_schedule_backup.json");
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+    }
+
+    function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const imported = JSON.parse(e.target.result);
+                if (Array.isArray(imported)) {
+                    events = imported;
+                    saveAndRefresh();
+                    alert("Schedule & tracker successfully imported!");
+                }
+            } catch (err) { alert("Invalid backup profile layout."); }
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+    }
+
+    window.onload = init;
+</script>
+
+</body>
+</html>
