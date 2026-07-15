@@ -819,15 +819,21 @@
     </div>
 </div>
         <div class="container" id="appContainer" style="display: none;">
-    <header>
-        <h1>Weekly Dashboard</h1>
-                <div class="nav-controls">
-                    <button class="nav-btn" onclick="navigateWeek(-1)">◀ Prev</button>
-                    <button class="nav-btn" onclick="goToCurrentWeek()">Today</button>
-                    <div class="current-week-label" id="weekLabel">Week of...</div>
-                    <button class="nav-btn" onclick="navigateWeek(1)">Next ▶</button>
-                </div>
-            </header>
+    <header style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+            <h1>Weekly Dashboard</h1>
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem;">
+                <span id="userEmailSpan" style="color: #64748b;"></span>
+                <button class="nav-btn" style="padding: 4px 8px; font-size: 0.75rem;" onclick="handleSignOut()">Sign Out</button>
+            </div>
+        </div>
+        <div class="nav-controls">
+            <button class="nav-btn" onclick="navigateWeek(-1)">◀ Prev</button>
+            <button class="nav-btn" onclick="goToCurrentWeek()">Today</button>
+            <div class="current-week-label" id="weekLabel">Week of...</div>
+            <button class="nav-btn" onclick="navigateWeek(1)">Next ▶</button>
+        </div>
+    </header>
 
             <div class="form-container">
                 <div class="form-tabs">
@@ -1067,8 +1073,6 @@
 
                 window.addEventListener("resize", debounce(renderCalendar, 150));
             }
-
-            let isSignUpMode = false;
 
 // 1. Toggle between Login & Sign Up modes visually
 function toggleAuthMode() {
