@@ -125,20 +125,23 @@
 
             .form-panel {
                 padding: 15px;
-                display: flex;
-                gap: 12px;
-                flex-wrap: wrap;
-                align-items: flex-end;
             }
             .form-content {
                 display: none;
                 width: 100%;
+                flex-direction: column;
+                gap: 15px;
             }
             .form-content.active {
+                display: flex;
+            }
+
+            .form-row {
                 display: flex;
                 gap: 12px;
                 flex-wrap: wrap;
                 align-items: flex-end;
+                width: 100%;
             }
 
             .form-group {
@@ -204,6 +207,31 @@
             }
             .secondary-btn:hover {
                 background: #e2e8f0;
+            }
+
+            /* Styles for Multi-Session Creator */
+            .session-block {
+                background: #f8fafc;
+                border: 1px dashed var(--border-color);
+                border-radius: 8px;
+                padding: 10px;
+                margin-top: 8px;
+                width: 100%;
+            }
+            .session-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 0.8rem;
+                font-weight: 600;
+                color: #475569;
+                margin-bottom: 8px;
+            }
+            .session-list-container {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                width: 100%;
             }
 
             .controls-toolbar {
@@ -838,7 +866,6 @@
 
         <!-- Your Existing Dashboard Container (Initially Hidden) -->
         <div id="dashboardContainer" style="display: none">
-            <!-- ... Rest of your existing Weekly Dashboard HTML layout ... -->
             <div class="container">
                 <header>
                     <h1>Weekly Dashboard</h1>
@@ -861,107 +888,133 @@
                         </button>
                     </div>
                     <div class="form-panel">
+                        <!-- Add/Edit Event Form -->
                         <div id="eventForm" class="form-content active">
-                            <div class="form-group">
-                                <label for="title">Event Name</label>
-                                <input type="text" id="title" placeholder="e.g., Fluid Mechanics, Work Shift" />
+                            <!-- Basic details row -->
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="title">Event Name</label>
+                                    <input type="text" id="title" placeholder="e.g., Physics 334" />
+                                </div>
+                                <div class="form-group small">
+                                    <label for="eventCategory">Category</label>
+                                    <select id="eventCategory">
+                                        <option value="class">🎓 Class</option>
+                                        <option value="work">💼 Work</option>
+                                        <option value="paua">🦪 PAUA</option>
+                                        <option value="social">🎉 Social</option>
+                                        <option value="study">📚 Study</option>
+                                    </select>
+                                </div>
+                                <div class="form-group checkbox">
+                                    <input type="checkbox" id="isRecurring" onchange="toggleRecurrenceInput()" />
+                                    <label for="isRecurring" style="cursor: pointer; font-size: 0.8rem"
+                                        >Repeat Event</label
+                                    >
+                                </div>
                             </div>
-                            <div class="form-group small">
-                                <label for="eventCategory">Category</label>
-                                <select id="eventCategory">
-                                    <option value="class">🎓 Class</option>
-                                    <option value="work">💼 Work</option>
-                                    <option value="paua">🦪 PAUA</option>
-                                    <option value="social">🎉 Social</option>
-                                    <option value="study">📚 Study</option>
-                                </select>
+
+                            <!-- Sessions Box (Day, Times, Location) -->
+                            <div class="session-block">
+                                <div class="session-header">
+                                    <span>Class Sessions (Set multiple sessions if this occurs several times a week)</span>
+                                    <button class="secondary-btn" style="padding: 4px 8px; font-size: 0.75rem;" onclick="addSessionRow()">➕ Add Session</button>
+                                </div>
+                                <div id="sessionList" class="session-list-container">
+                                    <!-- Dynamic Session Rows will get injected here -->
+                                </div>
                             </div>
-                            <div class="form-group small">
-                                <label for="day">Day of Week</label>
-                                <select id="day">
-                                    <option value="1">Monday</option>
-                                    <option value="2">Tuesday</option>
-                                    <option value="3">Wednesday</option>
-                                    <option value="4">Thursday</option>
-                                    <option value="5">Friday</option>
-                                    <option value="6">Saturday</option>
-                                    <option value="0">Sunday</option>
-                                </select>
+
+                            <!-- Recurrence configuration row -->
+                            <div class="form-row" id="weeksGroup" style="display: none;">
+                                <div class="form-group small">
+                                    <label for="weeksCount">Duration (Weeks)</label>
+                                    <input type="number" id="weeksCount" min="1" max="52" value="12" style="width: 80px" />
+                                </div>
+                                <div class="form-group small">
+                                    <label for="recurrenceInterval">Frequency</label>
+                                    <select id="recurrenceInterval" style="width: 140px">
+                                        <option value="1">Every Week</option>
+                                        <option value="2">Every 2nd Week</option>
+                                        <option value="3">Every 3rd Week</option>
+                                    </select>
+                                </div>
+                                <div class="form-group checkbox">
+                                    <input type="checkbox" id="hasBreak" onchange="toggleBreakInput()" />
+                                    <label for="hasBreak" style="cursor: pointer; font-size: 0.8rem">Skip Break Dates</label>
+                                </div>
+                                <div class="form-group" id="breakDatesGroup" style="display: none; min-width: 250px; flex-direction: row; gap: 8px; align-items: flex-end;">
+                                    <div>
+                                        <label for="breakStart">Break Start</label>
+                                        <input type="date" id="breakStart" />
+                                    </div>
+                                    <div>
+                                        <label for="breakEnd">Break End</label>
+                                        <input type="date" id="breakEnd" />
+                                    </div>
+                                </div>
                             </div>
-                            <div class="form-group small">
-                                <label for="start">Start Time</label>
-                                <select id="start"></select>
-                            </div>
-                            <div class="form-group small">
-                                <label for="end">End Time</label>
-                                <select id="end"></select>
-                            </div>
-                            <div class="form-group">
-                                <label for="location">Location</label>
-                                <input type="text" id="location" placeholder="Optional Room/Link" />
-                            </div>
-                            <div class="form-group">
-                                <label for="notes">Notes</label>
-                                <input type="text" id="notes" placeholder="Optional text" />
-                            </div>
-                            <div class="form-group checkbox">
-                                <input type="checkbox" id="isRecurring" onchange="toggleRecurrenceInput()" />
-                                <label for="isRecurring" style="cursor: pointer; font-size: 0.8rem"
-                                    >Repeat Weekly</label
-                                >
-                            </div>
-                            <div class="form-group small" id="weeksGroup" style="display: none">
-                                <label for="weeksCount">Weeks</label>
-                                <input type="number" id="weeksCount" min="2" max="52" value="12" style="width: 60px" />
-                            </div>
-                            <div style="display: flex; gap: 8px" id="eventFormActions">
-                                <button class="submit-btn" id="eventSubmitBtn" onclick="addEvent()">Add Event</button>
-                                <button
-                                    class="secondary-btn"
-                                    id="eventCancelBtn"
-                                    style="display: none; height: 38px"
-                                    onclick="cancelEdit()">
-                                    Cancel
-                                </button>
+
+                            <!-- Action button row -->
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="notes">Notes</label>
+                                    <input type="text" id="notes" placeholder="Optional text" />
+                                </div>
+                                <div style="display: flex; gap: 8px" id="eventFormActions">
+                                    <button class="submit-btn" id="eventSubmitBtn" onclick="addEvent()">Add Event</button>
+                                    <button
+                                        class="secondary-btn"
+                                        id="eventCancelBtn"
+                                        style="display: none; height: 38px"
+                                        onclick="cancelEdit()">
+                                        Cancel
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
+                        <!-- Add/Edit Assignment Form -->
                         <div id="assignmentForm" class="form-content">
-                            <div class="form-group">
-                                <label for="assignTitle">Assignment Title</label>
-                                <input type="text" id="assignTitle" placeholder="e.g., Physics Problem Set 3" />
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="assignTitle">Assignment Title</label>
+                                    <input type="text" id="assignTitle" placeholder="e.g., Physics Problem Set 3" />
+                                </div>
+                                <div class="form-group">
+                                    <label for="availDate">Available Date</label>
+                                    <input type="date" id="availDate" />
+                                </div>
+                                <div class="form-group small">
+                                    <label for="availTime">Available Time</label>
+                                    <select id="availTime"></select>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label for="availDate">Available Date</label>
-                                <input type="date" id="availDate" />
-                            </div>
-                            <div class="form-group small">
-                                <label for="availTime">Available Time</label>
-                                <select id="availTime"></select>
-                            </div>
-                            <div class="form-group">
-                                <label for="assignDate">Due Date</label>
-                                <input type="date" id="assignDate" />
-                            </div>
-                            <div class="form-group small">
-                                <label for="assignTime">Due Time</label>
-                                <select id="assignTime"></select>
-                            </div>
-                            <div class="form-group">
-                                <label for="assignNotes">Requirements/Notes</label>
-                                <input type="text" id="assignNotes" placeholder="Optional details" />
-                            </div>
-                            <div style="display: flex; gap: 8px" id="assignmentFormActions">
-                                <button class="submit-btn assign" id="assignSubmitBtn" onclick="addAssignment()">
-                                    Add Assignment
-                                </button>
-                                <button
-                                    class="secondary-btn"
-                                    id="assignCancelBtn"
-                                    style="display: none; height: 38px"
-                                    onclick="cancelEdit()">
-                                    Cancel
-                                </button>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="assignDate">Due Date</label>
+                                    <input type="date" id="assignDate" />
+                                </div>
+                                <div class="form-group small">
+                                    <label for="assignTime">Due Time</label>
+                                    <select id="assignTime"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="assignNotes">Requirements/Notes</label>
+                                    <input type="text" id="assignNotes" placeholder="Optional details" />
+                                </div>
+                                <div style="display: flex; gap: 8px" id="assignmentFormActions">
+                                    <button class="submit-btn assign" id="assignSubmitBtn" onclick="addAssignment()">
+                                        Add Assignment
+                                    </button>
+                                    <button
+                                        class="secondary-btn"
+                                        id="assignCancelBtn"
+                                        style="display: none; height: 38px"
+                                        onclick="cancelEdit()">
+                                        Cancel
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1047,15 +1100,11 @@
                     const dashboardContainer = document.getElementById("dashboardContainer");
 
                     if (session) {
-                        // User is signed in
                         authContainer.style.display = "none";
                         dashboardContainer.style.display = "block";
-
-                        // Initialize the app and pull down user-specific items
                         init();
                         fetchEvents();
                     } else {
-                        // User is signed out
                         authContainer.style.display = "block";
                         dashboardContainer.style.display = "none";
                     }
@@ -1070,11 +1119,8 @@
                 const { data, error } = await supabaseClient.auth.signUp({ email, password });
                 if (error) return alert("Sign Up Error: " + error.message);
 
-                // If Supabase requires email confirmation, session will be null/empty on initial sign up
                 if (data.user && !data.session) {
-                    alert(
-                        "Sign up successful! Please check your inbox and click the verification link before logging in."
-                    );
+                    alert("Sign up successful! Please check your inbox and click the verification link before logging in.");
                 } else {
                     alert("Sign up successful and logged in!");
                 }
@@ -1094,60 +1140,133 @@
             }
 
             const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-            // Default system parameters
             const baseStartHour = 8;
             const baseEndHour = 20;
 
             let currentAnchorDate = new Date();
-            let events = []; // State now starts empty and populates from Supabase
+            let events = [];
             let editingEventId = null;
 
             let mobileCollapseState = {};
             let masterStateOpen = false;
 
-            // TODO: Replace these with your actual Supabase credentials from your Dashboard project settings
             const SUPABASE_URL = "https://jptxthjiybhweocnvyco.supabase.co";
             const SUPABASE_ANON_KEY = "sb_publishable_mktqecZ6QtelVGOgQnlwZA_L2YA7KkG";
             const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+            // Options cache for populating time drop-downs
+            let timeSelectOptions = [];
 
             async function init() {
                 const today = new Date();
                 document.getElementById("assignDate").value = today.toISOString().split("T")[0];
                 document.getElementById("availDate").value = today.toISOString().split("T")[0];
 
-                const startSelect = document.getElementById("start");
-                const endSelect = document.getElementById("end");
                 const assignTimeSelect = document.getElementById("assignTime");
                 const availTimeSelect = document.getElementById("availTime");
 
+                timeSelectOptions = [];
                 for (let h = 0; h < 24; h++) {
                     for (let m of ["00", "30"]) {
                         let timeStr = `${h.toString().padStart(2, "0")}:${m}`;
-                        startSelect.add(new Option(timeStr, timeStr));
+                        timeSelectOptions.push(timeStr);
                         assignTimeSelect.add(new Option(timeStr, timeStr));
                         availTimeSelect.add(new Option(timeStr, timeStr));
-
-                        let nextH = m === "30" ? h + 1 : h;
-                        let nextM = m === "30" ? "00" : "30";
-                        if (nextH <= 24) {
-                            let endStr = `${nextH.toString().padStart(2, "0")}:${nextM}`;
-                            endSelect.add(new Option(endStr, endStr));
-                        }
                     }
                 }
-                startSelect.value = "08:00";
-                endSelect.value = "09:00";
+                
                 assignTimeSelect.value = "12:00";
                 availTimeSelect.value = "08:00";
 
-                window.addEventListener("resize", debounce(renderCalendar, 150));
+                // Initialize first default Session Row
+                resetSessionRows();
 
-                // Fetch initial data down from Supabase
+                window.addEventListener("resize", debounce(renderCalendar, 150));
                 await fetchEvents();
             }
 
-            // New Helper: Sync state from Supabase and update UI
+            // --- Multi-Session Helper Functions ---
+            function createSessionRowHtml(id = null, defaultDay = "1", defaultStart = "08:00", defaultEnd = "09:00", defaultLoc = "") {
+                const rowId = id || 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+                
+                // Construct day dropdown
+                let daySelectHtml = `<select class="session-day" style="width: 110px">`;
+                daySelectHtml += `<option value="1" ${defaultDay === "1" ? "selected" : ""}>Monday</option>`;
+                daySelectHtml += `<option value="2" ${defaultDay === "2" ? "selected" : ""}>Tuesday</option>`;
+                daySelectHtml += `<option value="3" ${defaultDay === "3" ? "selected" : ""}>Wednesday</option>`;
+                daySelectHtml += `<option value="4" ${defaultDay === "4" ? "selected" : ""}>Thursday</option>`;
+                daySelectHtml += `<option value="5" ${defaultDay === "5" ? "selected" : ""}>Friday</option>`;
+                daySelectHtml += `<option value="6" ${defaultDay === "6" ? "selected" : ""}>Saturday</option>`;
+                daySelectHtml += `<option value="0" ${defaultDay === "0" ? "selected" : ""}>Sunday</option>`;
+                daySelectHtml += `</select>`;
+
+                // Construct start & end select options
+                let startOptions = "";
+                let endOptions = "";
+                timeSelectOptions.forEach(t => {
+                    startOptions += `<option value="${t}" ${t === defaultStart ? "selected" : ""}>${t}</option>`;
+                });
+                // Offset end times slightly or copy
+                timeSelectOptions.forEach(t => {
+                    endOptions += `<option value="${t}" ${t === defaultEnd ? "selected" : ""}>${t}</option>`;
+                });
+
+                return `
+                    <div class="form-row session-row" id="${rowId}" style="margin-top: 5px;">
+                        <div class="form-group small">
+                            <label>Day</label>
+                            ${daySelectHtml}
+                        </div>
+                        <div class="form-group small">
+                            <label>Start</label>
+                            <select class="session-start">${startOptions}</select>
+                        </div>
+                        <div class="form-group small">
+                            <label>End</label>
+                            <select class="session-end">${endOptions}</select>
+                        </div>
+                        <div class="form-group">
+                            <label>Room / Location</label>
+                            <input type="text" class="session-location" value="${defaultLoc}" placeholder="e.g., Room 302 / Zoom" />
+                        </div>
+                        <button class="secondary-btn" style="color: var(--danger); padding: 8px; font-weight: bold; margin-bottom: 2px;" onclick="removeSessionRow('${rowId}')">×</button>
+                    </div>
+                `;
+            }
+
+            function addSessionRow(defaultDay = "1", defaultStart = "08:00", defaultEnd = "09:00", defaultLoc = "") {
+                const list = document.getElementById("sessionList");
+                const div = document.createElement("div");
+                div.innerHTML = createSessionRowHtml(null, defaultDay, defaultStart, defaultEnd, defaultLoc);
+                list.appendChild(div.firstElementChild);
+            }
+
+            function removeSessionRow(rowId) {
+                const row = document.getElementById(rowId);
+                const list = document.getElementById("sessionList");
+                // Ensure there is always at least one row left
+                if (list.getElementsByClassName("session-row").length > 1) {
+                    row.remove();
+                } else {
+                    alert("Your event must have at least one session/time.");
+                }
+            }
+
+            function resetSessionRows() {
+                document.getElementById("sessionList").innerHTML = "";
+                addSessionRow("1", "08:00", "09:00", "");
+            }
+
+            function toggleRecurrenceInput() {
+                const checkbox = document.getElementById("isRecurring");
+                document.getElementById("weeksGroup").style.display = checkbox.checked ? "flex" : "none";
+            }
+
+            function toggleBreakInput() {
+                const checkbox = document.getElementById("hasBreak");
+                document.getElementById("breakDatesGroup").style.display = checkbox.checked ? "flex" : "none";
+            }
+
             async function fetchEvents() {
                 const { data, error } = await supabaseClient.from("events").select("*");
                 if (error) {
@@ -1156,7 +1275,6 @@
                     return;
                 }
 
-                // Map snake_case columns back to frontend application architecture expectations
                 events = data.map((item) => ({
                     id: item.id,
                     groupId: item.group_id,
@@ -1196,11 +1314,6 @@
                     document.querySelectorAll(".tab-btn")[1].classList.add("active");
                     document.getElementById("assignmentForm").classList.add("active");
                 }
-            }
-
-            function toggleRecurrenceInput() {
-                const checkbox = document.getElementById("isRecurring");
-                document.getElementById("weeksGroup").style.display = checkbox.checked ? "flex" : "none";
             }
 
             function getMonday(d) {
@@ -1309,23 +1422,36 @@
 
                 switchTab("event");
 
+                // If editing a group series
                 const relatedChunks = item.groupId
                     ? events.filter((x) => x.groupId === item.groupId)
                     : events.filter(
                           (x) => x.title === item.title && x.date === item.date && x.category === item.category
                       );
 
-                relatedChunks.sort((a, b) => a.start.localeCompare(b.start));
-                const trueStart = relatedChunks[0].start;
-                const trueEnd = relatedChunks[relatedChunks.length - 1].end;
-
                 document.getElementById("title").value = item.title;
                 document.getElementById("eventCategory").value = item.category || "class";
-                document.getElementById("day").value = item.day;
-                document.getElementById("start").value = trueStart;
-                document.getElementById("end").value = trueEnd;
-                document.getElementById("location").value = item.location || "";
                 document.getElementById("notes").value = item.notes || "";
+
+                // Populate Dynamic Sessions in Form from Existing Group Instances
+                const sessionContainer = document.getElementById("sessionList");
+                sessionContainer.innerHTML = "";
+
+                // Filter to just the unique day/time combinations for this class representation
+                const distinctSessions = [];
+                const trackingKeys = new Set();
+                
+                relatedChunks.forEach(chunk => {
+                    const key = `${chunk.day}_${chunk.start}_${chunk.end}`;
+                    if (!trackingKeys.has(key)) {
+                        trackingKeys.add(key);
+                        distinctSessions.push(chunk);
+                    }
+                });
+
+                distinctSessions.forEach(sess => {
+                    addSessionRow(sess.day, sess.start, sess.end, sess.location);
+                });
 
                 const isRecur = !!item.groupId;
                 document.getElementById("isRecurring").checked = isRecur;
@@ -1343,10 +1469,14 @@
             function cancelEdit() {
                 editingEventId = null;
                 document.getElementById("title").value = "";
-                document.getElementById("location").value = "";
                 document.getElementById("notes").value = "";
                 document.getElementById("isRecurring").checked = false;
                 toggleRecurrenceInput();
+
+                document.getElementById("hasBreak").checked = false;
+                toggleBreakInput();
+
+                resetSessionRows();
 
                 document.getElementById("eventSubmitBtn").innerText = "Add Event";
                 document.getElementById("eventSubmitBtn").setAttribute("onclick", "addEvent()");
@@ -1367,7 +1497,6 @@
             async function saveEventEdit() {
                 if (!editingEventId) return;
 
-                // Remove existing items from database before saving modifications
                 const { error } = await supabaseClient
                     .from("events")
                     .delete()
@@ -1392,11 +1521,7 @@
             }
 
             async function addAssignment() {
-                // Check Auth state explicitly first
-                const {
-                    data: { user },
-                    error: authError
-                } = await supabaseClient.auth.getUser();
+                const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
 
                 if (authError || !user) {
                     console.error("Auth verification failed:", authError);
@@ -1429,7 +1554,6 @@
                     completed: false
                 };
 
-                // Log database engine complaints directly to your browser's console log
                 const { error } = await supabaseClient.from("events").insert([newAssignment]);
                 if (error) {
                     console.error("Supabase Database Insert Error:", error);
@@ -1443,11 +1567,7 @@
             }
 
             async function addEvent() {
-                // Check Auth state explicitly first
-                const {
-                    data: { user },
-                    error: authError
-                } = await supabaseClient.auth.getUser();
+                const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
 
                 if (authError || !user) {
                     console.error("Auth verification failed:", authError);
@@ -1455,59 +1575,96 @@
                 }
 
                 const title = document.getElementById("title").value.trim();
-                const day = parseInt(document.getElementById("day").value);
                 const category = document.getElementById("eventCategory").value;
-                const start = document.getElementById("start").value;
-                const end = document.getElementById("end").value;
-                const location = document.getElementById("location").value.trim();
                 const notes = document.getElementById("notes").value.trim();
+                
                 const isRecurring = document.getElementById("isRecurring").checked;
                 const weeksCount = parseInt(document.getElementById("weeksCount").value) || 1;
+                const recurrenceInterval = parseInt(document.getElementById("recurrenceInterval").value) || 1;
+
+                const hasBreak = document.getElementById("hasBreak").checked;
+                const breakStartVal = document.getElementById("breakStart").value;
+                const breakEndVal = document.getElementById("breakEnd").value;
 
                 if (!title) return alert("Please enter an event name.");
-                if (start >= end) return alert("End time must be after start time.");
+
+                // Parse all dynamic session rows
+                const sessionRows = document.getElementsByClassName("session-row");
+                const parsedSessions = [];
+                for (let r of sessionRows) {
+                    const sDay = parseInt(r.querySelector(".session-day").value);
+                    const sStart = r.querySelector(".session-start").value;
+                    const sEnd = r.querySelector(".session-end").value;
+                    const sLoc = r.querySelector(".session-location").value.trim();
+
+                    if (sStart >= sEnd) {
+                        return alert(`For session on ${days[sDay]}, the end time must be after the start time.`);
+                    }
+                    parsedSessions.push({ day: sDay, start: sStart, end: sEnd, location: sLoc });
+                }
 
                 const monday = getMonday(currentAnchorDate);
                 const dayOrder = [1, 2, 3, 4, 5, 6, 0];
-                const colIndex = dayOrder.indexOf(day);
-
-                let anchorDate = new Date(monday);
-                anchorDate.setDate(monday.getDate() + colIndex);
-
                 const loops = isRecurring ? weeksCount : 1;
                 const groupId = isRecurring ? Date.now().toString() : null;
 
-                const startH = parseInt(start.split(":")[0]);
-                const endH = parseInt(end.split(":")[0]);
-                const endM = parseInt(end.split(":")[1]);
-                const maxHour = endM > 0 ? endH : endH - 1;
-
                 const batchInsertRows = [];
 
-                for (let i = 0; i < loops; i++) {
-                    let eventDate = new Date(anchorDate);
-                    eventDate.setDate(anchorDate.getDate() + i * 7);
+                // Loop through scheduled weeks (taking recurrence intervals into account)
+                for (let i = 0; i < loops; i += recurrenceInterval) {
+                    
+                    // Loop through each distinct session (allows multi-day/time setups)
+                    for (let sess of parsedSessions) {
+                        const colIndex = dayOrder.indexOf(sess.day);
+                        let anchorDate = new Date(monday);
+                        anchorDate.setDate(monday.getDate() + colIndex);
 
-                    for (let h = startH; h <= maxHour; h++) {
-                        const chunkStart = h === startH ? start : `${h.toString().padStart(2, "0")}:00`;
-                        const chunkEnd = h === maxHour ? end : `${(h + 1).toString().padStart(2, "0")}:00`;
+                        let eventDate = new Date(anchorDate);
+                        // Add weeks step based on loop sequence index
+                        eventDate.setDate(anchorDate.getDate() + i * 7);
+                        const eventDateStr = getDateString(eventDate);
 
-                        batchInsertRows.push({
-                            id: `${Date.now()}-${i}-${h}-${Math.random()}`,
-                            user_id: user.id,
-                            group_id: groupId,
-                            type: "event",
-                            category,
-                            title,
-                            day: day.toString(),
-                            date: getDateString(eventDate),
-                            start_time: chunkStart,
-                            end_time: chunkEnd,
-                            location,
-                            notes,
-                            completed: false
-                        });
+                        // Midsem break validation check
+                        if (hasBreak && breakStartVal && breakEndVal) {
+                            const currentCheckTime = eventDate.getTime();
+                            const breakStartTime = new Date(breakStartVal + "T00:00:00").getTime();
+                            const breakEndTime = new Date(breakEndVal + "T23:59:59").getTime();
+                            if (currentCheckTime >= breakStartTime && currentCheckTime <= breakEndTime) {
+                                continue; // Skip generating events during this midsem week!
+                            }
+                        }
+
+                        // Parse chunks for schedule layout renders
+                        const startH = parseInt(sess.start.split(":")[0]);
+                        const endH = parseInt(sess.end.split(":")[0]);
+                        const endM = parseInt(sess.end.split(":")[1]);
+                        const maxHour = endM > 0 ? endH : endH - 1;
+
+                        for (let h = startH; h <= maxHour; h++) {
+                            const chunkStart = h === startH ? sess.start : `${h.toString().padStart(2, "0")}:00`;
+                            const chunkEnd = h === maxHour ? sess.end : `${(h + 1).toString().padStart(2, "0")}:00`;
+
+                            batchInsertRows.push({
+                                id: `${Date.now()}-${i}-${sess.day}-${h}-${Math.random()}`,
+                                user_id: user.id,
+                                group_id: groupId,
+                                type: "event",
+                                category,
+                                title,
+                                day: sess.day.toString(),
+                                date: eventDateStr,
+                                start_time: chunkStart,
+                                end_time: chunkEnd,
+                                location: sess.location,
+                                notes,
+                                completed: false
+                            });
+                        }
                     }
+                }
+
+                if (batchInsertRows.length === 0) {
+                    return alert("No occurrences were generated (they may have all fallen inside the break dates).");
                 }
 
                 const { error } = await supabaseClient.from("events").insert(batchInsertRows);
@@ -1519,10 +1676,12 @@
                 await fetchEvents();
 
                 document.getElementById("title").value = "";
-                document.getElementById("location").value = "";
                 document.getElementById("notes").value = "";
                 document.getElementById("isRecurring").checked = false;
                 toggleRecurrenceInput();
+                document.getElementById("hasBreak").checked = false;
+                toggleBreakInput();
+                resetSessionRows();
             }
 
             function closeModal() {
@@ -1534,35 +1693,35 @@
 
                 if (groupId) {
                     modalContainer.innerHTML = `
-    <div class="modal-overlay" onclick="closeModal()">
-        <div class="modal-box" onclick="event.stopPropagation()">
-            <div class="modal-title">Delete Recurring Event</div>
-            <div class="modal-body">
-                <strong>"${titleText}"</strong> is part of a weekly recurring series. Would you like to remove just this date, or the entire series?
-            </div>
-            <div class="modal-actions">
-                <button class="modal-btn danger" onclick="executeDelete('one', '${id}', '${groupId}', '${dateStr}')">One (Just ${dateStr})</button>
-                <button class="modal-btn danger" onclick="executeDelete('all', '${id}', '${groupId}', '${dateStr}')">All (Entire Series)</button>
-                <button class="modal-btn" onclick="closeModal()">Cancel</button>
-            </div>
-        </div>
-    </div>
-`;
+                        <div class="modal-overlay" onclick="closeModal()">
+                            <div class="modal-box" onclick="event.stopPropagation()">
+                                <div class="modal-title">Delete Recurring Event</div>
+                                <div class="modal-body">
+                                    <strong>"${titleText}"</strong> is part of a weekly recurring series. Would you like to remove just this date, or the entire series?
+                                </div>
+                                <div class="modal-actions">
+                                    <button class="modal-btn danger" onclick="executeDelete('one', '${id}', '${groupId}', '${dateStr}')">One (Just ${dateStr})</button>
+                                    <button class="modal-btn danger" onclick="executeDelete('all', '${id}', '${groupId}', '${dateStr}')">All (Entire Series)</button>
+                                    <button class="modal-btn" onclick="closeModal()">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
                 } else {
                     modalContainer.innerHTML = `
-    <div class="modal-overlay" onclick="closeModal()">
-        <div class="modal-box" onclick="event.stopPropagation()">
-            <div class="modal-title">Confirm Deletion</div>
-            <div class="modal-body">
-                Are you sure you want to delete the item <strong>"${titleText}"</strong>? This action cannot be undone.
-            </div>
-            <div class="modal-actions">
-                <button class="modal-btn danger" onclick="executeDelete('single', '${id}', null, null)">Yes, Delete</button>
-                <button class="modal-btn" onclick="closeModal()">Cancel</button>
-            </div>
-        </div>
-    </div>
-`;
+                        <div class="modal-overlay" onclick="closeModal()">
+                            <div class="modal-box" onclick="event.stopPropagation()">
+                                <div class="modal-title">Confirm Deletion</div>
+                                <div class="modal-body">
+                                    Are you sure you want to delete the item <strong>"${titleText}"</strong>? This action cannot be undone.
+                                </div>
+                                <div class="modal-actions">
+                                    <button class="modal-btn danger" onclick="executeDelete('single', '${id}', null, null)">Yes, Delete</button>
+                                    <button class="modal-btn" onclick="closeModal()">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
                 }
             }
 
@@ -1689,9 +1848,9 @@
                         headerCell.className = `mobile-group-header ${isToday ? "today-highlight" : ""}`;
                         headerCell.setAttribute("onclick", `toggleMobileDay('${targetDateStr}')`);
                         headerCell.innerHTML = `
-        <div>${days[dayValue]}</div>
-        <div class="header-date">${formatDateShort(date)}</div>
-    `;
+                            <div>${days[dayValue]}</div>
+                            <div class="header-date">${formatDateShort(date)}</div>
+                        `;
                         dayGroup.appendChild(headerCell);
 
                         const eventsContainer = document.createElement("div");
@@ -1733,17 +1892,17 @@
                                 const deleteAction = `handleDeleteClick('${e.id}', ${e.groupId ? `'${e.groupId}'` : "null"}, '${e.date}', '${safeTitle}')`;
 
                                 card.innerHTML = `
-                <button class="delete-btn" onclick="${deleteAction}">×</button>
-                <div class="event-title">
-                    ${isAssign ? `<input type="checkbox" class="card-checkbox" ${e.completed ? "checked" : ""} ${isLocked ? "disabled" : ""} onclick="toggleComplete('${e.id}')">` : ""}
-                    ${emoji}${e.title}
-                </div>
-                <div class="event-time">${isAssign ? "Due at " + e.start : e.start + " - " + e.end}</div>
-                ${isLocked ? `<div class="locked-badge">Not yet available</div>` : ""}
-                ${e.location ? `<div class="event-meta">📍 ${e.location}</div>` : ""}
-                ${e.notes ? `<div class="event-meta event-notes">${e.notes}</div>` : ""}
-                ${e.hasClash ? '<div class="clash-warning">⚠️ Schedule Clash</div>' : ""}
-            `;
+                                    <button class="delete-btn" onclick="${deleteAction}">×</button>
+                                    <div class="event-title">
+                                        ${isAssign ? `<input type="checkbox" class="card-checkbox" ${e.completed ? "checked" : ""} ${isLocked ? "disabled" : ""} onclick="toggleComplete('${e.id}')">` : ""}
+                                        ${emoji}${e.title}
+                                    </div>
+                                    <div class="event-time">${isAssign ? "Due at " + e.start : e.start + " - " + e.end}</div>
+                                    ${isLocked ? `<div class="locked-badge">Not yet available</div>` : ""}
+                                    ${e.location ? `<div class="event-meta">📍 ${e.location}</div>` : ""}
+                                    ${e.notes ? `<div class="event-meta event-notes">${e.notes}</div>` : ""}
+                                    ${e.hasClash ? '<div class="clash-warning">⚠️ Schedule Clash</div>' : ""}
+                                `;
                                 eventsContainer.appendChild(card);
                             });
                         }
@@ -1759,9 +1918,9 @@
                         const headerCell = document.createElement("div");
                         headerCell.className = `header-cell ${isToday ? "today-highlight" : ""}`;
                         headerCell.innerHTML = `
-        <div>${days[dayOrder[index]]}</div>
-        <div class="header-date">${formatDateShort(date)}</div>
-    `;
+                            <div>${days[dayOrder[index]]}</div>
+                            <div class="header-date">${formatDateShort(date)}</div>
+                        `;
                         cal.appendChild(headerCell);
                     });
 
@@ -1810,17 +1969,17 @@
                                 const deleteAction = `handleDeleteClick('${e.id}', ${e.groupId ? `'${e.groupId}'` : "null"}, '${e.date}', '${safeTitle}')`;
 
                                 card.innerHTML = `
-                <button class="delete-btn" onclick="${deleteAction}">×</button>
-                <div class="event-title">
-                    ${isAssign ? `<input type="checkbox" class="card-checkbox" ${e.completed ? "checked" : ""} ${isLocked ? "disabled" : ""} onclick="toggleComplete('${e.id}')">` : ""}
-                    ${emoji}${e.title}
-                </div>
-                <div class="event-time">${isAssign ? "Due at " + e.start : e.start + " - " + e.end}</div>
-                ${isLocked ? `<div class="locked-badge">Not yet available</div>` : ""}
-                ${e.location ? `<div class="event-meta">📍 ${e.location}</div>` : ""}
-                ${e.notes ? `<div class="event-meta event-notes">${e.notes}</div>` : ""}
-                ${e.hasClash ? '<div class="clash-warning">⚠️ Schedule Clash</div>' : ""}
-            `;
+                                    <button class="delete-btn" onclick="${deleteAction}">×</button>
+                                    <div class="event-title">
+                                        ${isAssign ? `<input type="checkbox" class="card-checkbox" ${e.completed ? "checked" : ""} ${isLocked ? "disabled" : ""} onclick="toggleComplete('${e.id}')">` : ""}
+                                        ${emoji}${e.title}
+                                    </div>
+                                    <div class="event-time">${isAssign ? "Due at " + e.start : e.start + " - " + e.end}</div>
+                                    ${isLocked ? `<div class="locked-badge">Not yet available</div>` : ""}
+                                    ${e.location ? `<div class="event-meta">📍 ${e.location}</div>` : ""}
+                                    ${e.notes ? `<div class="event-meta event-notes">${e.notes}</div>` : ""}
+                                    ${e.hasClash ? '<div class="clash-warning">⚠️ Schedule Clash</div>' : ""}
+                                `;
                                 cell.appendChild(card);
                             });
 
@@ -1863,15 +2022,15 @@
                     const deleteAction = `handleDeleteClick('${a.id}', null, '${a.date}', '${safeTitle}')`;
 
                     div.innerHTML = `
-    <input type="checkbox" class="item-chk" ${a.completed ? "checked" : ""} ${isLocked ? "disabled" : ""} onclick="toggleComplete('${a.id}')">
-    <div class="item-details">
-        <div class="item-title">${isLocked ? "🔒 " : ""}${a.title}</div>
-        <div class="item-date">📅 Due: ${formattedDate} @ ${a.start}</div>
-        ${isLocked ? `<div class="locked-badge" style="margin-bottom:4px;">Not yet available</div>` : ""}
-        ${a.notes ? `<div class="item-subtext">📌 ${a.notes}</div>` : ""}
-    </div>
-    <button class="delete-btn" style="top:8px; right:8px;" onclick="${deleteAction}">×</button>
-`;
+                        <input type="checkbox" class="item-chk" ${a.completed ? "checked" : ""} ${isLocked ? "disabled" : ""} onclick="toggleComplete('${a.id}')">
+                        <div class="item-details">
+                            <div class="item-title">${isLocked ? "🔒 " : ""}${a.title}</div>
+                            <div class="item-date">📅 Due: ${formattedDate} @ ${a.start}</div>
+                            ${isLocked ? `<div class="locked-badge" style="margin-bottom:4px;">Not yet available</div>` : ""}
+                            ${a.notes ? `<div class="item-subtext">📌 ${a.notes}</div>` : ""}
+                        </div>
+                        <button class="delete-btn" style="top:8px; right:8px;" onclick="${deleteAction}">×</button>
+                    `;
                     container.appendChild(div);
                 });
             }
@@ -1901,6 +2060,7 @@
                 reader.onload = async function (e) {
                     try {
                         const imported = JSON.parse(e.target.result);
+                        const { data: { user } } = await supabaseClient.auth.getUser();
                         if (Array.isArray(imported)) {
                             const rows = imported.map((item) => ({
                                 id: item.id || `${Date.now()}-${Math.random()}`,
@@ -1910,13 +2070,14 @@
                                 title: item.title,
                                 day: item.day,
                                 date: item.date,
-                                start_time: item.start,
-                                end_time: item.end,
+                                start_time: item.startTime,
+                                end_time: item.endTime,
                                 location: item.location,
                                 notes: item.notes,
                                 avail_date: item.availDate,
                                 avail_time: item.availTime,
-                                completed: item.completed || false
+                                completed: item.completed || false,
+                                user_id: user ? user.id : null
                             }));
 
                             const { error } = await supabaseClient.from("events").insert(rows);
@@ -1927,7 +2088,7 @@
                         }
                     } catch (err) {
                         console.error(err);
-                        alert("Invalid backup profile layout or upload failed.");
+                        alert(`Error: ${err.message || JSON.stringify(err)}`);
                     }
                 };
                 reader.readAsText(file);
