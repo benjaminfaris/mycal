@@ -1067,9 +1067,17 @@
                 const email = document.getElementById("authEmail").value.trim();
                 const password = document.getElementById("authPassword").value;
 
-                const { error } = await supabaseClient.auth.signUp({ email, password });
+                const { data, error } = await supabaseClient.auth.signUp({ email, password });
                 if (error) return alert("Sign Up Error: " + error.message);
-                alert("Check your email for a confirmation link (if enabled), otherwise try logging in!");
+
+                // If Supabase requires email confirmation, session will be null/empty on initial sign up
+                if (data.user && !data.session) {
+                    alert(
+                        "Sign up successful! Please check your inbox and click the verification link before logging in."
+                    );
+                } else {
+                    alert("Sign up successful and logged in!");
+                }
             }
 
             async function handleLogin() {
