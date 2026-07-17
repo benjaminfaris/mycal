@@ -24,6 +24,14 @@
             --work-light: #fffbeb;
             --class: #06b6d4;
             --class-light: #ecfeff;
+            --paua: #db2777;
+            --paua-light: #fdf2f8;
+            
+            /* New Categories styling colors */
+            --social: #4f46e5;
+            --social-light: #e0e7ff;
+            --study: #0d9488;
+            --study-light: #f0fdfa;
             
             /* Locked styling colors */
             --locked-bg: #f8fafc;
@@ -264,6 +272,9 @@
         .event-card.assignment-type { background: var(--assignment-light); border-left-color: var(--assignment); }
         .event-card.class-type { background: var(--class-light); border-left-color: var(--class); }
         .event-card.work-type { background: var(--work-light); border-left-color: var(--work); }
+        .event-card.paua-type { background: var(--paua-light); border-left-color: var(--paua); }
+        .event-card.social-type { background: var(--social-light); border-left-color: var(--social); }
+        .event-card.study-type { background: var(--study-light); border-left-color: var(--study); }
         
         .event-card.completed-state { background: var(--completed-bg) !important; border-left-color: var(--completed-text) !important; color: var(--completed-text); }
         .event-card.completed-state .event-title { text-decoration: line-through; color: var(--completed-text); }
@@ -330,6 +341,7 @@
             75% { transform: translateX(2px); }
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -360,6 +372,9 @@
                     <select id="eventCategory">
                         <option value="class">🎓 Class</option>
                         <option value="work">💼 Work</option>
+                        <option value="paua">🦪 PAUA</option>
+                        <option value="social">🎉 Social</option>
+                        <option value="study">📚 Study</option>
                     </select>
                 </div>
                 <div class="form-group small">
@@ -449,6 +464,18 @@
                 <span style="color: var(--work);">Work</span>
             </label>
             <label class="filter-opt">
+                <input type="checkbox" id="filterPaua" checked onchange="renderCalendar()">
+                <span style="color: var(--paua);">PAUA</span>
+            </label>
+            <label class="filter-opt">
+                <input type="checkbox" id="filterSocial" checked onchange="renderCalendar()">
+                <span style="color: var(--social);">Social</span>
+            </label>
+            <label class="filter-opt">
+                <input type="checkbox" id="filterStudy" checked onchange="renderCalendar()">
+                <span style="color: var(--study);">Study</span>
+            </label>
+            <label class="filter-opt">
                 <input type="checkbox" id="filterAssignments" checked onchange="renderCalendar()">
                 <span style="color: var(--assignment);">Assignments</span>
             </label>
@@ -492,13 +519,18 @@
     const baseEndHour = 20;
 
     let currentAnchorDate = new Date(); 
-    let events = JSON.parse(localStorage.getItem('calendar_events_v2')) || [];
+    let events = []; // State now starts empty and populates from Supabase
     let editingEventId = null; 
     
     let mobileCollapseState = {}; 
     let masterStateOpen = false;
 
-    function init() {
+    // TODO: Replace these with your actual Supabase credentials from your Dashboard project settings
+    const SUPABASE_URL = 'https://jptxthjiybhweocnvyco.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_mktqecZ6QtelVGOgQnlwZA_L2YA7KkG';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    async function init() {
         const today = new Date();
         document.getElementById('assignDate').value = today.toISOString().split('T')[0];
         document.getElementById('availDate').value = today.toISOString().split('T')[0];
@@ -508,7 +540,6 @@
         const assignTimeSelect = document.getElementById('assignTime');
         const availTimeSelect = document.getElementById('availTime');
 
-        // Populate choice selectors across full 24-hour pool for robust user entry
         for (let h = 0; h < 24; h++) {
             for (let m of ['00', '30']) {
                 let timeStr = `${h.toString().padStart(2, '0')}:${m}`;
@@ -530,6 +561,38 @@
         availTimeSelect.value = "08:00";
 
         window.addEventListener('resize', debounce(renderCalendar, 150));
+        
+        // Fetch initial data down from Supabase
+        await fetchEvents();
+    }
+
+    // New Helper: Sync state from Supabase and update UI
+    async function fetchEvents() {
+        const { data, error } = await supabaseClient.from('events').select('*');
+        if (error) {
+            console.error('Error fetching events:', error);
+            alert('Failed to sync data from cloud server.');
+            return;
+        }
+        
+        // Map snake_case columns back to frontend application architecture expectations
+        events = data.map(item => ({
+            id: item.id,
+            groupId: item.group_id,
+            type: item.type,
+            category: item.category,
+            title: item.title,
+            day: item.day,
+            date: item.date,
+            start: item.start_time,
+            end: item.end_time,
+            location: item.location,
+            notes: item.notes,
+            availDate: item.avail_date,
+            availTime: item.avail_time,
+            completed: item.completed
+        }));
+
         renderCalendar();
     }
 
@@ -596,14 +659,20 @@
         return now < availDateTime;
     }
 
-    function toggleComplete(id) {
-        const index = events.findIndex(e => e.id === id);
-        if(index !== -1) {
-            if (events[index].type === 'assignment' && isAssignmentLocked(events[index])) {
-                return; 
-            }
-            events[index].completed = !events[index].completed;
-            saveAndRefresh();
+    async function toggleComplete(id) {
+        const target = events.find(e => e.id === id);
+        if(target) {
+            if (target.type === 'assignment' && isAssignmentLocked(target)) return; 
+            
+            const nextCompletedState = !target.completed;
+            
+            const { error } = await supabaseClient
+                .from('events')
+                .update({ completed: nextCompletedState })
+                .eq('id', id);
+
+            if (error) return alert("Failed to update task status.");
+            await fetchEvents();
         }
     }
 
@@ -706,28 +775,38 @@
         document.getElementById('assignCancelBtn').style.display = 'none';
     }
 
-    function saveEventEdit() {
+    async function saveEventEdit() {
         if (!editingEventId) return;
-        events = events.filter(x => x.id !== editingEventId && x.groupId !== editingEventId);
+        
+        // Remove existing items from database before saving modifications
+        const { error } = await supabaseClient
+            .from('events')
+            .delete()
+            .or(`id.eq.${editingEventId},group_id.eq.${editingEventId}`);
+
+        if (error) return alert("Failed to clear prior instance data updates.");
+        
         editingEventId = null;
-        addEvent(); 
+        await addEvent(); 
+        
         document.getElementById('eventSubmitBtn').innerText = "Add Event";
         document.getElementById('eventSubmitBtn').setAttribute('onclick', 'addEvent()');
         document.getElementById('eventCancelBtn').style.display = 'none';
     }
 
-    function saveAssignmentEdit(id) {
-        events = events.filter(x => x.id !== id);
-        addAssignment();
+    async function saveAssignmentEdit(id) {
+        const { error } = await supabaseClient.from('events').delete().eq('id', id);
+        if (error) return alert("Failed to clear assignment update.");
+        
+        await addAssignment();
         cancelEdit();
     }
 
-    function addAssignment() {
+    async function addAssignment() {
         const title = document.getElementById('assignTitle').value.trim();
         const dateRaw = document.getElementById('assignDate').value;
         const time = document.getElementById('assignTime').value;
         const notes = document.getElementById('assignNotes').value.trim();
-        
         const availDate = document.getElementById('availDate').value;
         const availTime = document.getElementById('availTime').value;
 
@@ -736,27 +815,30 @@
         const parseDate = new Date(dateRaw + 'T00:00:00');
         const dayOfWeek = parseDate.getDay();
 
-        events.push({
+        const newAssignment = {
             id: Date.now().toString(),
             type: 'assignment',
             title,
             day: dayOfWeek.toString(),
             date: dateRaw, 
-            start: time,
-            end: time,
+            start_time: time,
+            end_time: time,
             notes,
-            availDate,
-            availTime,
-            completed: false,
-            hasClash: false
-        });
-        saveAndRefresh();
+            avail_date: availDate,
+            avail_time: availTime,
+            completed: false
+        };
+
+        const { error } = await supabaseClient.from('events').insert([newAssignment]);
+        if (error) return alert("Error saving assignment to cloud database.");
+
+        await fetchEvents();
 
         document.getElementById('assignTitle').value = '';
         document.getElementById('assignNotes').value = '';
     }
 
-    function addEvent() {
+    async function addEvent() {
         const title = document.getElementById('title').value.trim();
         const day = parseInt(document.getElementById('day').value);
         const category = document.getElementById('eventCategory').value;
@@ -783,8 +865,9 @@
         const startH = parseInt(start.split(':')[0]);
         const endH = parseInt(end.split(':')[0]);
         const endM = parseInt(end.split(':')[1]);
-
         const maxHour = endM > 0 ? endH : endH - 1;
+
+        const batchInsertRows = [];
 
         for (let i = 0; i < loops; i++) {
             let eventDate = new Date(anchorDate);
@@ -794,25 +877,27 @@
                 const chunkStart = h === startH ? start : `${h.toString().padStart(2, '0')}:00`;
                 const chunkEnd = h === maxHour ? end : `${(h + 1).toString().padStart(2, '0')}:00`;
 
-                events.push({
+                batchInsertRows.push({
                     id: `${Date.now()}-${i}-${h}-${Math.random()}`,
-                    groupId,
+                    group_id: groupId,
                     type: 'event',
                     category,
                     title,
                     day: day.toString(),
                     date: getDateString(eventDate),
-                    start: chunkStart,
-                    end: chunkEnd,
+                    start_time: chunkStart,
+                    end_time: chunkEnd,
                     location,
                     notes,
-                    completed: false,
-                    hasClash: false
+                    completed: false
                 });
             }
         }
 
-        saveAndRefresh();
+        const { error } = await supabaseClient.from('events').insert(batchInsertRows);
+        if (error) return alert("Error batch-saving structural schedules.");
+
+        await fetchEvents();
 
         document.getElementById('title').value = '';
         document.getElementById('location').value = '';
@@ -862,16 +947,22 @@
         }
     }
 
-    function executeDelete(mode, id, groupId, dateStr) {
+    async function executeDelete(mode, id, groupId, dateStr) {
+        let query = supabaseClient.from('events').delete();
+        
         if (mode === 'one') {
-            events = events.filter(e => !(e.groupId === groupId && e.date === dateStr));
+            query = query.eq('group_id', groupId).eq('date', dateStr);
         } else if (mode === 'all') {
-            events = events.filter(e => e.groupId !== groupId);
+            query = query.eq('group_id', groupId);
         } else if (mode === 'single') {
-            events = events.filter(e => e.id !== id);
+            query = query.eq('id', id);
         }
+        
+        const { error } = await query;
+        if (error) alert("Could not delete record profile items.");
+        
         closeModal();
-        saveAndRefresh();
+        await fetchEvents();
     }
 
     function detectClashes(columnDates) {
@@ -891,6 +982,9 @@
     function getFilteredEvents() {
         const showClasses = document.getElementById('filterClasses').checked;
         const showWork = document.getElementById('filterWork').checked;
+        const showPaua = document.getElementById('filterPaua').checked;
+        const showSocial = document.getElementById('filterSocial').checked;
+        const showStudy = document.getElementById('filterStudy').checked;
         const showAssignments = document.getElementById('filterAssignments').checked;
         
         return events.filter(e => {
@@ -898,6 +992,9 @@
             if (e.type === 'event') {
                 if (e.category === 'class' && !showClasses) return false;
                 if (e.category === 'work' && !showWork) return false;
+                if (e.category === 'paua' && !showPaua) return false;
+                if (e.category === 'social' && !showSocial) return false;
+                if (e.category === 'study' && !showStudy) return false;
             }
             return true;
         });
@@ -921,7 +1018,6 @@
             return colDate;
         });
 
-        // Parse array into strings to cleanly check targeted date range bounds
         const allowedWeekStrings = columnDates.map(d => getDateString(d));
 
         detectClashes(columnDates);
@@ -929,11 +1025,9 @@
 
         const activeEvents = getFilteredEvents();
 
-        // Dynamically compute the current week's boundary hours
         let currentStartHour = baseStartHour;
         let currentEndHour = baseEndHour;
 
-        // Scan the data layout matching active items strictly in the visible week range
         activeEvents.forEach(e => {
             if (allowedWeekStrings.includes(e.date)) {
                 if (e.start) {
@@ -943,14 +1037,12 @@
                 if (e.end) {
                     const eHour = parseInt(e.end.split(':')[0]);
                     const eMin = parseInt(e.end.split(':')[1] || 0);
-                    // Account for partial hour block adjustments
                     const targetedCeil = eMin > 0 ? eHour + 1 : eHour;
                     if (targetedCeil > currentEndHour) currentEndHour = targetedCeil;
                 }
             }
         });
 
-        // Ensure boundary validation rules
         if (currentStartHour < 0) currentStartHour = 0;
         if (currentEndHour > 24) currentEndHour = 24;
 
@@ -997,10 +1089,16 @@
                         let dynamicTypeClass = 'class-type'; 
                         if (isAssign) dynamicTypeClass = 'assignment-type';
                         else if (e.category === 'work') dynamicTypeClass = 'work-type';
+                        else if (e.category === 'paua') dynamicTypeClass = 'paua-type';
+                        else if (e.category === 'social') dynamicTypeClass = 'social-type';
+                        else if (e.category === 'study') dynamicTypeClass = 'study-type';
 
                         let emoji = '🎓 ';
                         if (isAssign) emoji = isLocked ? '🔒 ' : '📝 ';
                         else if (e.category === 'work') emoji = '💼 ';
+                        else if (e.category === 'paua') emoji = '🦪 ';
+                        else if (e.category === 'social') emoji = '🎉 ';
+                        else if (e.category === 'study') emoji = '📚 ';
 
                         const card = document.createElement('div');
                         card.className = `event-card ${dynamicTypeClass} ${e.completed ? 'completed-state' : ''} ${isLocked ? 'locked-state' : ''} ${e.hasClash ? 'clash' : ''}`;
@@ -1044,7 +1142,6 @@
                 cal.appendChild(headerCell);
             });
 
-            // Loop structural configuration utilizes computed variable dimensions safely
             for (let h = currentStartHour; h < currentEndHour; h++) {
                 cal.appendChild(createCell(`${h.toString().padStart(2, '0')}:00`, 'time-cell'));
 
@@ -1069,10 +1166,16 @@
                         let dynamicTypeClass = 'class-type'; 
                         if (isAssign) dynamicTypeClass = 'assignment-type';
                         else if (e.category === 'work') dynamicTypeClass = 'work-type';
+                        else if (e.category === 'paua') dynamicTypeClass = 'paua-type';
+                        else if (e.category === 'social') dynamicTypeClass = 'social-type';
+                        else if (e.category === 'study') dynamicTypeClass = 'study-type';
 
                         let emoji = '🎓 ';
                         if (isAssign) emoji = isLocked ? '🔒 ' : '📝 ';
                         else if (e.category === 'work') emoji = '💼 ';
+                        else if (e.category === 'paua') emoji = '🦪 ';
+                        else if (e.category === 'social') emoji = '🎉 ';
+                        else if (e.category === 'study') emoji = '📚 ';
 
                         const card = document.createElement('div');
                         card.className = `event-card ${dynamicTypeClass} ${e.completed ? 'completed-state' : ''} ${isLocked ? 'locked-state' : ''} ${e.hasClash ? 'clash' : ''}`;
@@ -1152,11 +1255,7 @@
         return div;
     }
 
-    function saveAndRefresh() {
-        localStorage.setItem('calendar_events_v2', JSON.stringify(events));
-        renderCalendar();
-    }
-
+    // Export retains existing functionality for local backup array generation
     function exportData() {
         if (events.length === 0) return alert("Your schedule data array is empty.");
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(events, null, 2));
@@ -1168,19 +1267,43 @@
         anchor.remove();
     }
 
-    function importData(event) {
+    // Updated: Import function uploads bulk file entries to Supabase database
+    async function importData(event) {
         const file = event.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = async function(e) {
             try {
                 const imported = JSON.parse(e.target.result);
                 if (Array.isArray(imported)) {
-                    events = imported;
-                    saveAndRefresh();
-                    alert("Schedule & tracker successfully imported!");
+                    // Turn frontend keys into backend schema properties
+                    const rows = imported.map(item => ({
+                        id: item.id || `${Date.now()}-${Math.random()}`,
+                        group_id: item.groupId,
+                        type: item.type,
+                        category: item.category,
+                        title: item.title,
+                        day: item.day,
+                        date: item.date,
+                        start_time: item.start,
+                        end_time: item.end,
+                        location: item.location,
+                        notes: item.notes,
+                        avail_date: item.availDate,
+                        avail_time: item.availTime,
+                        completed: item.completed || false
+                    }));
+
+                    const { error } = await supabaseClient.from('events').insert(rows);
+                    if (error) throw error;
+                    
+                    await fetchEvents();
+                    alert("Schedule successfully imported into Supabase!");
                 }
-            } catch (err) { alert("Invalid backup profile layout."); }
+            } catch (err) { 
+                console.error(err);
+                alert("Invalid backup profile layout or upload failed."); 
+            }
         };
         reader.readAsText(file);
         event.target.value = '';
