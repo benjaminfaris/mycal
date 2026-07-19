@@ -41,6 +41,11 @@
                 --locked-bg: #f8fafc;
                 --locked-text: #94a3b8;
                 --locked-border: #cbd5e1;
+
+                /* Importance Priority Colors */
+                --priority-high: #ef4444;
+                --priority-medium: #f59e0b;
+                --priority-low: #3b82f6;
             }
 
             body {
@@ -126,6 +131,9 @@
             .tab-btn.assignment-tab.active {
                 border-bottom-color: var(--assignment);
             }
+            .tab-btn.todo-tab.active {
+                border-bottom-color: var(--accent-green);
+            }
 
             .form-panel {
                 padding: 15px;
@@ -202,6 +210,9 @@
             }
             .submit-btn.assign {
                 background: var(--assignment);
+            }
+            .submit-btn.todo {
+                background: var(--accent-green);
             }
             .secondary-btn {
                 background: var(--card-color);
@@ -316,9 +327,12 @@
                 }
                 .sidebar-wrapper {
                     flex: 1;
-                    min-width: 320px;
+                    min-width: 340px;
                     position: sticky;
                     top: 20px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 20px;
                 }
             }
 
@@ -649,7 +663,7 @@
                 display: flex;
                 flex-direction: column;
                 gap: 8px;
-                max-height: 500px;
+                max-height: 400px;
                 overflow-y: auto;
                 padding-right: 2px;
             }
@@ -676,6 +690,18 @@
             .sidebar-item.assignment-done .item-title {
                 text-decoration: line-through;
             }
+            
+            /* To-Do Item Specific Priority Borders */
+            .sidebar-item.priority-high-border {
+                border-left: 4px solid var(--priority-high);
+            }
+            .sidebar-item.priority-medium-border {
+                border-left: 4px solid var(--priority-medium);
+            }
+            .sidebar-item.priority-low-border {
+                border-left: 4px solid var(--priority-low);
+            }
+
             .item-chk {
                 width: 16px;
                 height: 16px;
@@ -707,6 +733,17 @@
                 color: #64748b;
                 margin-top: 2px;
                 word-break: break-word;
+            }
+            
+            .todo-group-header {
+                font-size: 0.8rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                color: #475569;
+                background: #f1f5f9;
+                padding: 4px 8px;
+                border-radius: 4px;
+                margin: 8px 0 4px 0;
             }
 
             .storage-panel {
@@ -892,9 +929,8 @@
                 <div class="form-container">
                     <div class="form-tabs">
                         <button class="tab-btn active" onclick="switchTab('event')">📅 Add General Event</button>
-                        <button class="tab-btn assignment-tab" onclick="switchTab('assignment')">
-                            📝 Add Assignment Due Date
-                        </button>
+                        <button class="tab-btn assignment-tab" onclick="switchTab('assignment')">📝 Add Assignment Due Date</button>
+                        <button class="tab-btn todo-tab" onclick="switchTab('todo')">✅ To-do</button>
                     </div>
                     <div class="form-panel">
                         <!-- Add/Edit Event Form -->
@@ -1027,6 +1063,53 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Add/Edit To-Do Item Form -->
+                        <div id="todoForm" class="form-content">
+                            <div class="form-row">
+                                <div class="form-group" style="flex-grow: 2;">
+                                    <label for="todoTitle">Task / To-Do Name</label>
+                                    <input type="text" id="todoTitle" placeholder="e.g., Review fluid dynamics lecture notes" />
+                                </div>
+                                <div class="form-group">
+                                    <label for="todoLinkedEvent">Associated Event/Assignment</label>
+                                    <input type="text" id="todoLinkedEvent" readonly placeholder="Click any item in the calendar to auto-fill" style="background: #f1f5f9; cursor: not-allowed;" />
+                                    <input type="hidden" id="todoLinkedId" value="" />
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group small">
+                                    <label for="todoCategory">Category Override</label>
+                                    <select id="todoCategory">
+                                        <option value="none">None (No Category)</option>
+                                        <option value="class">🎓 Class</option>
+                                        <option value="work">💼 Work</option>
+                                        <option value="sport">⚽ Sport</option>
+                                        <option value="paua">🦪 PAUA</option>
+                                        <option value="social">🎉 Social</option>
+                                        <option value="study">📚 Study</option>
+                                        <option value="assignment">📝 Assignment</option>
+                                        <option value="other">⚙️ Other</option>
+                                    </select>
+                                </div>
+                                <div class="form-group small">
+                                    <label for="todoImportance">Importance Level</label>
+                                    <select id="todoImportance">
+                                        <option value="high">🔴 High Importance</option>
+                                        <option value="medium" selected>🟡 Medium Importance</option>
+                                        <option value="low">🔵 Low Importance</option>
+                                    </select>
+                                </div>
+                                <div style="display: flex; gap: 8px">
+                                    <button class="submit-btn todo" id="todoSubmitBtn" onclick="addToDoItem()">
+                                        Add To-Do Task
+                                    </button>
+                                    <button class="secondary-btn" id="todoClearLinkedBtn" style="height: 38px" onclick="clearLinkedTodoContext()">
+                                        Clear Selection
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1073,6 +1156,22 @@
                     </div>
 
                     <div class="sidebar-wrapper">
+                        <!-- To-Do Tracker Box Summary -->
+                        <div class="assignment-sidebar" style="border-color: var(--accent-green);">
+                            <h2 style="border-bottom-color: var(--accent-green);">✅ To-Do List</h2>
+                            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                                <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                                    <label style="font-size: 0.65rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Group/Sort By</label>
+                                    <select id="todoGroupBy" onchange="renderTodoSidebar()" style="padding: 4px 8px; font-size: 0.8rem;">
+                                        <option value="importance">Importance Level</option>
+                                        <option value="category">Category Type</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="assignment-list" id="todoSidebarList"></div>
+                        </div>
+
+                        <!-- Assignments Sidebar Box Container -->
                         <div class="assignment-sidebar">
                             <h2>📋 Assignment Tracker</h2>
                             <div class="assignment-list" id="sidebarList"></div>
@@ -1159,6 +1258,7 @@
 
             let currentAnchorDate = new Date();
             let events = [];
+            let todos = []; // To-Do entries list array profile context references
             let editingEventId = null;
 
             let mobileCollapseState = {};
@@ -1220,7 +1320,6 @@
                 timeSelectOptions.forEach(t => {
                     startOptions += `<option value="${t}" ${t === defaultStart ? "selected" : ""}>${t}</option>`;
                 });
-                // Offset end times slightly or copy
                 timeSelectOptions.forEach(t => {
                     endOptions += `<option value="${t}" ${t === defaultEnd ? "selected" : ""}>${t}</option>`;
                 });
@@ -1258,7 +1357,6 @@
             function removeSessionRow(rowId) {
                 const row = document.getElementById(rowId);
                 const list = document.getElementById("sessionList");
-                // Ensure there is always at least one row left
                 if (list.getElementsByClassName("session-row").length > 1) {
                     row.remove();
                 } else {
@@ -1282,14 +1380,15 @@
             }
 
             async function fetchEvents() {
-                const { data, error } = await supabaseClient.from("events").select("*");
-                if (error) {
-                    console.error("Error fetching events:", error);
-                    alert("Failed to sync data from cloud server.");
+                // Fetch basic events & assignments
+                const { data: eventData, error: eventError } = await supabaseClient.from("events").select("*");
+                if (eventError) {
+                    console.error("Error fetching events:", eventError);
+                    alert("Failed to sync structural schedules from cloud.");
                     return;
                 }
 
-                events = data.map((item) => ({
+                events = eventData.map((item) => ({
                     id: item.id,
                     groupId: item.group_id,
                     type: item.type,
@@ -1305,6 +1404,22 @@
                     availTime: item.avail_time,
                     completed: item.completed
                 }));
+
+                // Fetch database To-Dos table entries if existing or gracefully catch error if table is creating
+                const { data: todoData, error: todoError } = await supabaseClient.from("todos").select("*");
+                if (!todoError && todoData) {
+                    todos = todoData.map((t) => ({
+                        id: t.id,
+                        title: t.title,
+                        linkedId: t.linked_id,
+                        linkedTitle: t.linked_title,
+                        category: t.category,
+                        importance: t.importance,
+                        completed: t.completed
+                    }));
+                } else {
+                    console.warn("Todos table sync warning or missing. Defaulting to empty profile array.");
+                }
 
                 renderCalendar();
             }
@@ -1324,9 +1439,12 @@
                 if (type === "event") {
                     document.querySelectorAll(".tab-btn")[0].classList.add("active");
                     document.getElementById("eventForm").classList.add("active");
-                } else {
+                } else if (type === "assignment") {
                     document.querySelectorAll(".tab-btn")[1].classList.add("active");
                     document.getElementById("assignmentForm").classList.add("active");
+                } else if (type === "todo") {
+                    document.querySelectorAll(".tab-btn")[2].classList.add("active");
+                    document.getElementById("todoForm").classList.add("active");
                 }
             }
 
@@ -1371,15 +1489,19 @@
                 const target = events.find((e) => e.id === id);
                 if (target) {
                     if (target.type === "assignment" && isAssignmentLocked(target)) return;
-
                     const nextCompletedState = !target.completed;
+                    const { error } = await supabaseClient.from("events").update({ completed: nextCompletedState }).eq("id", id);
+                    if (error) return alert("Failed to update schedule status.");
+                    await fetchEvents();
+                }
+            }
 
-                    const { error } = await supabaseClient
-                        .from("events")
-                        .update({ completed: nextCompletedState })
-                        .eq("id", id);
-
-                    if (error) return alert("Failed to update task status.");
+            async function toggleTodoComplete(id) {
+                const target = todos.find((t) => t.id === id);
+                if (target) {
+                    const nextState = !target.completed;
+                    const { error } = await supabaseClient.from("todos").update({ completed: nextState }).eq("id", id);
+                    if (error) return alert("Failed to update To-Do status.");
                     await fetchEvents();
                 }
             }
@@ -1403,6 +1525,7 @@
                 renderCalendar();
             }
 
+            // Enhanced selection routing intercept handler
             function editEvent(id, e) {
                 if (
                     e &&
@@ -1415,13 +1538,27 @@
                 const item = events.find((x) => x.id === id);
                 if (!item) return;
 
+                // --- To-Do Context Intercept Hook ---
+                // If the user has the To-Do tab open, clicking any calendar item populates the connection fields
+                if (document.getElementById("todoForm").classList.contains("active")) {
+                    document.getElementById("todoLinkedEvent").value = `[${item.type.toUpperCase()}] ${item.title}`;
+                    document.getElementById("todoLinkedId").value = item.id;
+                    
+                    // Intelligently map the category default recommendation matches
+                    if (item.type === "assignment") {
+                        document.getElementById("todoCategory").value = "assignment";
+                    } else if (item.category) {
+                        document.getElementById("todoCategory").value = item.category;
+                    }
+                    return;
+                }
+
                 if (item.type === "assignment") {
                     switchTab("assignment");
                     document.getElementById("assignTitle").value = item.title;
                     document.getElementById("assignDate").value = item.date;
                     document.getElementById("assignTime").value = item.start;
                     document.getElementById("assignNotes").value = item.notes;
-
                     document.getElementById("availDate").value = item.availDate || item.date;
                     document.getElementById("availTime").value = item.availTime || "08:00";
 
@@ -1429,14 +1566,12 @@
                     submitBtn.innerText = "Update Assignment";
                     submitBtn.setAttribute("onclick", `saveAssignmentEdit('${id}')`);
                     document.getElementById("assignCancelBtn").style.display = "inline-block";
-
                     document.querySelector(".form-container").scrollIntoView({ behavior: "smooth" });
                     return;
                 }
 
                 switchTab("event");
 
-                // If editing a group series
                 const relatedChunks = item.groupId
                     ? events.filter((x) => x.groupId === item.groupId)
                     : events.filter(
@@ -1447,11 +1582,9 @@
                 document.getElementById("eventCategory").value = item.category || "class";
                 document.getElementById("notes").value = item.notes || "";
 
-                // Populate Dynamic Sessions in Form from Existing Group Instances
                 const sessionContainer = document.getElementById("sessionList");
                 sessionContainer.innerHTML = "";
 
-                // Filter to just the unique day/time combinations for this class representation
                 const distinctSessions = [];
                 const trackingKeys = new Set();
                 
@@ -1476,8 +1609,13 @@
                 document.getElementById("eventSubmitBtn").innerText = "Update Event";
                 document.getElementById("eventSubmitBtn").setAttribute("onclick", "saveEventEdit()");
                 document.getElementById("eventCancelBtn").style.display = "inline-block";
-
                 document.querySelector(".form-container").scrollIntoView({ behavior: "smooth" });
+            }
+
+            function clearLinkedTodoContext() {
+                document.getElementById("todoLinkedEvent").value = "";
+                document.getElementById("todoLinkedId").value = "";
+                document.getElementById("todoCategory").value = "none";
             }
 
             function cancelEdit() {
@@ -1486,10 +1624,8 @@
                 document.getElementById("notes").value = "";
                 document.getElementById("isRecurring").checked = false;
                 toggleRecurrenceInput();
-
                 document.getElementById("hasBreak").checked = false;
                 toggleBreakInput();
-
                 resetSessionRows();
 
                 document.getElementById("eventSubmitBtn").innerText = "Add Event";
@@ -1510,17 +1646,10 @@
 
             async function saveEventEdit() {
                 if (!editingEventId) return;
-
-                const { error } = await supabaseClient
-                    .from("events")
-                    .delete()
-                    .or(`id.eq.${editingEventId},group_id.eq.${editingEventId}`);
-
+                const { error } = await supabaseClient.from("events").delete().or(`id.eq.${editingEventId},group_id.eq.${editingEventId}`);
                 if (error) return alert("Failed to clear prior instance data updates.");
-
                 editingEventId = null;
                 await addEvent();
-
                 document.getElementById("eventSubmitBtn").innerText = "Add Event";
                 document.getElementById("eventSubmitBtn").setAttribute("onclick", "addEvent()");
                 document.getElementById("eventCancelBtn").style.display = "none";
@@ -1529,18 +1658,14 @@
             async function saveAssignmentEdit(id) {
                 const { error } = await supabaseClient.from("events").delete().eq("id", id);
                 if (error) return alert("Failed to clear assignment update.");
-
                 await addAssignment();
                 cancelEdit();
             }
 
             async function addAssignment() {
                 const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+                if (authError || !user) return alert("Authentication error: Sign in to add items.");
 
-                if (authError || !user) {
-                    console.error("Auth verification failed:", authError);
-                    return alert("Authentication error: You must be fully signed in to add items.");
-                }
                 const title = document.getElementById("assignTitle").value.trim();
                 const dateRaw = document.getElementById("assignDate").value;
                 const time = document.getElementById("assignTime").value;
@@ -1548,7 +1673,7 @@
                 const availDate = document.getElementById("availDate").value;
                 const availTime = document.getElementById("availTime").value;
 
-                if (!title || !dateRaw) return alert("Please input at least an assignment title and due date.");
+                if (!title || !dateRaw) return alert("Please input assignment title and due date.");
 
                 const parseDate = new Date(dateRaw + "T00:00:00");
                 const dayOfWeek = parseDate.getDay();
@@ -1569,11 +1694,7 @@
                 };
 
                 const { error } = await supabaseClient.from("events").insert([newAssignment]);
-                if (error) {
-                    console.error("Supabase Database Insert Error:", error);
-                    return alert(`Error saving assignment to cloud: ${error.message} (${error.code})`);
-                }
-
+                if (error) return alert(`Error saving assignment: ${error.message}`);
                 await fetchEvents();
 
                 document.getElementById("assignTitle").value = "";
@@ -1582,11 +1703,7 @@
 
             async function addEvent() {
                 const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-
-                if (authError || !user) {
-                    console.error("Auth verification failed:", authError);
-                    return alert("Authentication error: You must be fully signed in to add items.");
-                }
+                if (authError || !user) return alert("Authentication error: Sign in to add items.");
 
                 const title = document.getElementById("title").value.trim();
                 const category = document.getElementById("eventCategory").value;
@@ -1595,14 +1712,12 @@
                 const isRecurring = document.getElementById("isRecurring").checked;
                 const weeksCount = parseInt(document.getElementById("weeksCount").value) || 1;
                 const recurrenceInterval = parseInt(document.getElementById("recurrenceInterval").value) || 1;
-
                 const hasBreak = document.getElementById("hasBreak").checked;
                 const breakStartVal = document.getElementById("breakStart").value;
                 const breakEndVal = document.getElementById("breakEnd").value;
 
                 if (!title) return alert("Please enter an event name.");
 
-                // Parse all dynamic session rows
                 const sessionRows = document.getElementsByClassName("session-row");
                 const parsedSessions = [];
                 for (let r of sessionRows) {
@@ -1611,9 +1726,7 @@
                     const sEnd = r.querySelector(".session-end").value;
                     const sLoc = r.querySelector(".session-location").value.trim();
 
-                    if (sStart >= sEnd) {
-                        return alert(`For session on ${days[sDay]}, the end time must be after the start time.`);
-                    }
+                    if (sStart >= sEnd) return alert(`For session on ${days[sDay]}, end time must be after start time.`);
                     parsedSessions.push({ day: sDay, start: sStart, end: sEnd, location: sLoc });
                 }
 
@@ -1624,31 +1737,23 @@
 
                 const batchInsertRows = [];
 
-                // Loop through scheduled weeks (taking recurrence intervals into account)
                 for (let i = 0; i < loops; i += recurrenceInterval) {
-                    
-                    // Loop through each distinct session (allows multi-day/time setups)
                     for (let sess of parsedSessions) {
                         const colIndex = dayOrder.indexOf(sess.day);
                         let anchorDate = new Date(monday);
                         anchorDate.setDate(monday.getDate() + colIndex);
 
                         let eventDate = new Date(anchorDate);
-                        // Add weeks step based on loop sequence index
                         eventDate.setDate(anchorDate.getDate() + i * 7);
                         const eventDateStr = getDateString(eventDate);
 
-                        // Midsem break validation check
                         if (hasBreak && breakStartVal && breakEndVal) {
                             const currentCheckTime = eventDate.getTime();
                             const breakStartTime = new Date(breakStartVal + "T00:00:00").getTime();
                             const breakEndTime = new Date(breakEndVal + "T23:59:59").getTime();
-                            if (currentCheckTime >= breakStartTime && currentCheckTime <= breakEndTime) {
-                                continue; // Skip generating events during this midsem week!
-                            }
+                            if (currentCheckTime >= breakStartTime && currentCheckTime <= breakEndTime) continue;
                         }
 
-                        // Parse chunks for schedule layout renders
                         const startH = parseInt(sess.start.split(":")[0]);
                         const endH = parseInt(sess.end.split(":")[0]);
                         const endM = parseInt(sess.end.split(":")[1]);
@@ -1677,18 +1782,10 @@
                     }
                 }
 
-                if (batchInsertRows.length === 0) {
-                    return alert("No occurrences were generated (they may have all fallen inside the break dates).");
-                }
-
                 const { error } = await supabaseClient.from("events").insert(batchInsertRows);
-                if (error) {
-                    console.error("Supabase Database Batch Insert Error:", error);
-                    return alert(`Error batch-saving structural schedules: ${error.message} (${error.code})`);
-                }
+                if (error) return alert(`Error batch-saving schedules: ${error.message}`);
 
                 await fetchEvents();
-
                 document.getElementById("title").value = "";
                 document.getElementById("notes").value = "";
                 document.getElementById("isRecurring").checked = false;
@@ -1696,6 +1793,52 @@
                 document.getElementById("hasBreak").checked = false;
                 toggleBreakInput();
                 resetSessionRows();
+            }
+
+            // --- To-Do Item Addition Logic Functions ---
+            async function addToDoItem() {
+                const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+                if (authError || !user) return alert("Authentication error: Sign in to add items.");
+
+                const title = document.getElementById("todoTitle").value.trim();
+                const linkedTitle = document.getElementById("todoLinkedEvent").value;
+                const linkedId = document.getElementById("todoLinkedId").value;
+                const category = document.getElementById("todoCategory").value;
+                const importance = document.getElementById("todoImportance").value;
+
+                if (!title) return alert("Please enter a to-do task title description name.");
+
+                const newTodoRow = {
+                    id: 'todo_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                    user_id: user.id,
+                    title,
+                    linked_id: linkedId || null,
+                    linked_title: linkedTitle || null,
+                    category,
+                    importance,
+                    completed: false
+                };
+
+                const { error } = await supabaseClient.from("todos").insert([newTodoRow]);
+                if (error) {
+                    // Fallback to local array addition if your Supabase instance doesn't have the table yet
+                    console.error("Todos write error: fallback to local layout array sync.", error);
+                    todos.push(newTodoRow);
+                }
+                
+                await fetchEvents();
+
+                // Reset fields layout input
+                document.getElementById("todoTitle").value = "";
+                clearLinkedTodoContext();
+            }
+
+            async function deleteTodoItem(id) {
+                const { error } = await supabaseClient.from("todos").delete().eq("id", id);
+                if (error) {
+                    todos = todos.filter(t => t.id !== id);
+                }
+                await fetchEvents();
             }
 
             function closeModal() {
@@ -1773,7 +1916,6 @@
                 }
             }
 
-            // Updated filtering logic to respect the Sport display filter checkbox
             function getFilteredEvents() {
                 const showClasses = document.getElementById("filterClasses").checked;
                 const showWork = document.getElementById("filterWork").checked;
@@ -1806,8 +1948,7 @@
 
                 const sundayOfView = new Date(monday);
                 sundayOfView.setDate(monday.getDate() + 6);
-                document.getElementById("weekLabel").innerText =
-                    `${formatDateShort(monday)} – ${formatDateShort(sundayOfView)}`;
+                document.getElementById("weekLabel").innerText = `${formatDateShort(monday)} – ${formatDateShort(sundayOfView)}`;
 
                 const dayOrder = [1, 2, 3, 4, 5, 6, 0];
                 const columnDates = dayOrder.map((d, index) => {
@@ -1820,6 +1961,7 @@
 
                 detectClashes(columnDates);
                 renderSidebar();
+                renderTodoSidebar();
 
                 const activeEvents = getFilteredEvents();
 
@@ -1873,9 +2015,7 @@
                         const eventsContainer = document.createElement("div");
                         eventsContainer.className = "mobile-day-events";
 
-                        const dayEvents = activeEvents.filter(
-                            (e) => parseInt(e.day) === dayValue && (!e.date || e.date === targetDateStr)
-                        );
+                        const dayEvents = activeEvents.filter((e) => parseInt(e.day) === dayValue && (!e.date || e.date === targetDateStr));
                         dayEvents.sort((a, b) => a.start.localeCompare(b.start));
 
                         if (dayEvents.length === 0) {
@@ -1886,7 +2026,6 @@
                                 const isAssign = e.type === "assignment";
                                 const isLocked = isAssign && isAssignmentLocked(e);
 
-                                // Category parsing mapping for styling hook
                                 let dynamicTypeClass = "class-type";
                                 if (isAssign) dynamicTypeClass = "assignment-type";
                                 else if (e.category === "work") dynamicTypeClass = "work-type";
@@ -1895,7 +2034,6 @@
                                 else if (e.category === "social") dynamicTypeClass = "social-type";
                                 else if (e.category === "study") dynamicTypeClass = "study-type";
 
-                                // Category emoji rendering
                                 let emoji = "🎓 ";
                                 if (isAssign) emoji = isLocked ? "🔒 " : "📝 ";
                                 else if (e.category === "work") emoji = "💼 ";
@@ -1956,18 +2094,12 @@
                             const cell = document.createElement("div");
                             cell.className = `cell ${isToday ? "today-cell" : ""}`;
 
-                            const currentEvents = activeEvents.filter(
-                                (e) =>
-                                    parseInt(e.day) === dayValue &&
-                                    parseInt(e.start.split(":")[0]) === h &&
-                                    (!e.date || e.date === targetDateStr)
-                            );
+                            const currentEvents = activeEvents.filter((e) => parseInt(e.day) === dayValue && parseInt(e.start.split(":")[0]) === h && (!e.date || e.date === targetDateStr));
 
                             currentEvents.forEach((e) => {
                                 const isAssign = e.type === "assignment";
                                 const isLocked = isAssign && isAssignmentLocked(e);
 
-                                // Category parsing mapping for grid view styling hook
                                 let dynamicTypeClass = "class-type";
                                 if (isAssign) dynamicTypeClass = "assignment-type";
                                 else if (e.category === "work") dynamicTypeClass = "work-type";
@@ -1976,7 +2108,6 @@
                                 else if (e.category === "social") dynamicTypeClass = "social-type";
                                 else if (e.category === "study") dynamicTypeClass = "study-type";
 
-                                // Category emoji rendering
                                 let emoji = "🎓 ";
                                 if (isAssign) emoji = isLocked ? "🔒 " : "📝 ";
                                 else if (e.category === "work") emoji = "💼 ";
@@ -2031,11 +2162,7 @@
 
                 assignments.forEach((a) => {
                     const dateObj = new Date(a.date + "T00:00:00");
-                    const formattedDate = dateObj.toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric"
-                    });
+                    const formattedDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
                     const isLocked = isAssignmentLocked(a);
 
                     const div = document.createElement("div");
@@ -2060,6 +2187,72 @@
                 });
             }
 
+            // --- To-Do Render List Grouping logic engine ---
+            function renderTodoSidebar() {
+                const container = document.getElementById("todoSidebarList");
+                container.innerHTML = "";
+
+                if (todos.length === 0) {
+                    container.innerHTML = `<div style="font-size:0.8rem; color:#94a3b8; text-align:center; padding: 20px 0;">No tasks in your to-do list yet.</div>`;
+                    return;
+                }
+
+                const groupBy = document.getElementById("todoGroupBy").value;
+                let groupedTasks = {};
+
+                if (groupBy === "importance") {
+                    groupedTasks = { "🔴 High": [], "🟡 Medium": [], "🔵 Low": [] };
+                    todos.forEach(t => {
+                        if (t.importance === "high") groupedTasks["🔴 High"].push(t);
+                        else if (t.importance === "low") groupedTasks["🔵 Low"].push(t);
+                        else groupedTasks["🟡 Medium"].push(t);
+                    });
+                } else {
+                    groupedTasks = { "🎓 Classes": [], "💼 Work": [], "⚽ Sport": [], "📝 Assignments": [], "🦪 PAUA": [], "🎉 Social": [], "📚 Study": [], "⚙️ Other": [], "❓ Uncategorized": [] };
+                    todos.forEach(t => {
+                        if (t.category === "class") groupedTasks["🎓 Classes"].push(t);
+                        else if (t.category === "work") groupedTasks["💼 Work"].push(t);
+                        else if (t.category === "sport") groupedTasks["⚽ Sport"].push(t);
+                        else if (t.category === "assignment") groupedTasks["📝 Assignments"].push(t);
+                        else if (t.category === "paua") groupedTasks["🦪 PAUA"].push(t);
+                        else if (t.category === "social") groupedTasks["🎉 Social"].push(t);
+                        else if (t.category === "study") groupedTasks["📚 Study"].push(t);
+                        else if (t.category === "other") groupedTasks["⚙️ Other"].push(t);
+                        else groupedTasks["❓ Uncategorized"].push(t);
+                    });
+                }
+
+                Object.keys(groupedTasks).forEach(groupKey => {
+                    const list = groupedTasks[groupKey];
+                    if (list.length === 0) return;
+
+                    const titleHeader = document.createElement("div");
+                    titleHeader.className = "todo-group-header";
+                    titleHeader.innerText = `${groupKey} (${list.length})`;
+                    container.appendChild(titleHeader);
+
+                    list.forEach(t => {
+                        const div = document.createElement("div");
+                        div.className = `sidebar-item ${t.completed ? "assignment-done" : ""} priority-${t.importance}-border`;
+                        
+                        let badgeLabel = "";
+                        if (t.category && t.category !== "none") {
+                            badgeLabel = `<span style="font-size:0.68rem; font-weight:bold; background:#e2e8f0; padding:2px 4px; border-radius:3px; color:#475569; margin-left: 5px;">${t.category.toUpperCase()}</span>`;
+                        }
+
+                        div.innerHTML = `
+                            <input type="checkbox" class="item-chk" ${t.completed ? "checked" : ""} onclick="toggleTodoComplete('${t.id}')">
+                            <div class="item-details">
+                                <div class="item-title">${t.title} ${badgeLabel}</div>
+                                ${t.linkedTitle ? `<div class="item-subtext" style="color:var(--primary); font-weight:500;">🔗 Linked: ${t.linkedTitle}</div>` : ""}
+                            </div>
+                            <button class="delete-btn" style="top:8px; right:8px;" onclick="deleteTodoItem('${t.id}')">×</button>
+                        `;
+                        container.appendChild(div);
+                    });
+                });
+            }
+
             function createCell(text, className) {
                 const div = document.createElement("div");
                 div.className = className;
@@ -2068,11 +2261,12 @@
             }
 
             function exportData() {
-                if (events.length === 0) return alert("Your schedule data array is empty.");
-                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(events, null, 2));
+                if (events.length === 0 && todos.length === 0) return alert("Your data sets arrays are empty.");
+                const dataObj = { events, todos };
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataObj, null, 2));
                 const anchor = document.createElement("a");
                 anchor.setAttribute("href", dataStr);
-                anchor.setAttribute("download", "academic_schedule_backup.json");
+                anchor.setAttribute("download", "academic_dashboard_backup.json");
                 document.body.appendChild(anchor);
                 anchor.click();
                 anchor.remove();
@@ -2086,8 +2280,13 @@
                     try {
                         const imported = JSON.parse(e.target.result);
                         const { data: { user } } = await supabaseClient.auth.getUser();
-                        if (Array.isArray(imported)) {
-                            const rows = imported.map((item) => ({
+                        
+                        // Handle legacy structures vs combined data sets structures safely
+                        let targetEvents = Array.isArray(imported) ? imported : (imported.events || []);
+                        let targetTodos = imported.todos || [];
+
+                        if (targetEvents.length > 0) {
+                            const rows = targetEvents.map((item) => ({
                                 id: item.id || `${Date.now()}-${Math.random()}`,
                                 group_id: item.groupId,
                                 type: item.type,
@@ -2095,8 +2294,8 @@
                                 title: item.title,
                                 day: item.day,
                                 date: item.date,
-                                start_time: item.startTime,
-                                end_time: item.endTime,
+                                start_time: item.start_time || item.startTime,
+                                end_time: item.end_time || item.endTime,
                                 location: item.location,
                                 notes: item.notes,
                                 avail_date: item.availDate,
@@ -2104,16 +2303,28 @@
                                 completed: item.completed || false,
                                 user_id: user ? user.id : null
                             }));
-
-                            const { error } = await supabaseClient.from("events").insert(rows);
-                            if (error) throw error;
-
-                            await fetchEvents();
-                            alert("Schedule successfully imported into Supabase!");
+                            await supabaseClient.from("events").insert(rows);
                         }
+
+                        if (targetTodos.length > 0) {
+                            const todoRows = targetTodos.map((t) => ({
+                                id: t.id,
+                                title: t.title,
+                                linked_id: t.linkedId,
+                                linked_title: t.linkedTitle,
+                                category: t.category,
+                                importance: t.importance,
+                                completed: t.completed || false,
+                                user_id: user ? user.id : null
+                            }));
+                            await supabaseClient.from("todos").insert(todoRows);
+                        }
+
+                        await fetchEvents();
+                        alert("Data Snapshots loaded successfully!");
                     } catch (err) {
                         console.error(err);
-                        alert(`Error: ${err.message || JSON.stringify(err)}`);
+                        alert(`Import parsing exception err: ${err.message}`);
                     }
                 };
                 reader.readAsText(file);
