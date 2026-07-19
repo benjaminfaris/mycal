@@ -1104,6 +1104,9 @@
                                     <button class="submit-btn todo" id="todoSubmitBtn" onclick="addToDoItem()">
                                         Add To-Do Task
                                     </button>
+                                    <button class="secondary-btn" id="todoCancelBtn" style="display: none; height: 38px" onclick="cancelEdit()">
+                                        Cancel
+                                    </button>
                                     <button class="secondary-btn" id="todoClearLinkedBtn" style="height: 38px" onclick="clearLinkedTodoContext()">
                                         Clear Selection
                                     </button>
@@ -1260,6 +1263,7 @@
             let events = [];
             let todos = []; // To-Do entries list array profile context references
             let editingEventId = null;
+            let editingTodoId = null;
 
             let mobileCollapseState = {};
             let masterStateOpen = false;
@@ -1612,6 +1616,35 @@
                 document.querySelector(".form-container").scrollIntoView({ behavior: "smooth" });
             }
 
+            // Edit To-Do logic route handler
+            function editTodoItem(id, e) {
+                if (
+                    e &&
+                    (e.target.classList.contains("delete-btn") ||
+                        e.target.classList.contains("item-chk"))
+                )
+                    return;
+
+                const item = todos.find((t) => t.id === id);
+                if (!item) return;
+
+                switchTab("todo");
+
+                document.getElementById("todoTitle").value = item.title;
+                document.getElementById("todoLinkedEvent").value = item.linkedTitle || "";
+                document.getElementById("todoLinkedId").value = item.linkedId || "";
+                document.getElementById("todoCategory").value = item.category || "none";
+                document.getElementById("todoImportance").value = item.importance || "medium";
+
+                editingTodoId = item.id;
+
+                const submitBtn = document.getElementById("todoSubmitBtn");
+                submitBtn.innerText = "Update To-Do Task";
+                submitBtn.setAttribute("onclick", "saveTodoEdit()");
+                document.getElementById("todoCancelBtn").style.display = "inline-block";
+                document.querySelector(".form-container").scrollIntoView({ behavior: "smooth" });
+            }
+
             function clearLinkedTodoContext() {
                 document.getElementById("todoLinkedEvent").value = "";
                 document.getElementById("todoLinkedId").value = "";
@@ -1620,6 +1653,7 @@
 
             function cancelEdit() {
                 editingEventId = null;
+                editingTodoId = null;
                 document.getElementById("title").value = "";
                 document.getElementById("notes").value = "";
                 document.getElementById("isRecurring").checked = false;
@@ -1642,6 +1676,14 @@
                 assignBtn.innerText = "Add Assignment";
                 assignBtn.setAttribute("onclick", "addAssignment()");
                 document.getElementById("assignCancelBtn").style.display = "none";
+
+                document.getElementById("todoTitle").value = "";
+                clearLinkedTodoContext();
+                document.getElementById("todoImportance").value = "medium";
+                const todoBtn = document.getElementById("todoSubmitBtn");
+                todoBtn.innerText = "Add To-Do Task";
+                todoBtn.setAttribute("onclick", "addToDoItem()");
+                document.getElementById("todoCancelBtn").style.display = "none";
             }
 
             async function saveEventEdit() {
@@ -1660,6 +1702,43 @@
                 if (error) return alert("Failed to clear assignment update.");
                 await addAssignment();
                 cancelEdit();
+            }
+
+            async function saveTodoEdit() {
+                if (!editingTodoId) return;
+                const { error } = await supabaseClient.from("todos").delete().eq("id", editingTodoId);
+                if (error) return alert("Failed to clear todo update.");
+                
+                const { data: { user } } = await supabaseClient.auth.getUser();
+                if (!user) return alert("Authentication error.");
+
+                const title = document.getElementById("todoTitle").value.trim();
+                const linkedTitle = document.getElementById("todoLinkedEvent").value;
+                const linkedId = document.getElementById("todoLinkedId").value;
+                const category = document.getElementById("todoCategory").value;
+                const importance = document.getElementById("todoImportance").value;
+
+                if (!title) return alert("Please enter a to-do task title.");
+
+                const updatedTodoRow = {
+                    id: editingTodoId,
+                    user_id: user.id,
+                    title,
+                    linked_id: linkedId || null,
+                    linked_title: linkedTitle || null,
+                    category,
+                    importance,
+                    completed: false
+                };
+
+                const { error: insertError } = await supabaseClient.from("todos").insert([updatedTodoRow]);
+                if (insertError) {
+                    console.error("Todos write error fallback:", insertError);
+                }
+
+                editingTodoId = null;
+                cancelEdit();
+                await fetchEvents();
             }
 
             async function addAssignment() {
@@ -2262,6 +2341,8 @@
                     list.forEach(t => {
                         const div = document.createElement("div");
                         div.className = `sidebar-item ${t.completed ? "assignment-done" : ""} priority-${t.importance}-border`;
+                        div.setAttribute("onclick", `editTodoItem('${t.id}', event)`);
+                        div.style.cursor = "pointer";
                         
                         let badgeLabel = "";
                         if (t.category && t.category !== "none") {
