@@ -2050,6 +2050,19 @@
                                 const safeTitle = e.title.replace(/'/g, "\\'");
                                 const deleteAction = `handleDeleteClick('${e.id}', ${e.groupId ? `'${e.groupId}'` : "null"}, '${e.date}', '${safeTitle}')`;
 
+                                // Gather dynamically linked to-do tasks
+                                const linkedTasks = todos.filter(t => t.linkedId === e.id);
+                                let todoNotesHtml = "";
+                                if (linkedTasks.length > 0) {
+                                    todoNotesHtml = `<div class="event-meta event-notes" style="font-style: normal; margin-top: 4px; border-top: 1px dashed var(--border-color); padding-top: 4px;">`;
+                                    linkedTasks.forEach(t => {
+                                        todoNotesHtml += `<div style="margin-top: 2px; ${t.completed ? 'text-decoration: line-through; color: var(--completed-text);' : ''}">
+                                            ${t.completed ? '✅' : '⏳'} ${t.title}
+                                        </div>`;
+                                    });
+                                    todoNotesHtml += `</div>`;
+                                }
+
                                 card.innerHTML = `
                                     <button class="delete-btn" onclick="${deleteAction}">×</button>
                                     <div class="event-title">
@@ -2060,6 +2073,7 @@
                                     ${isLocked ? `<div class="locked-badge">Not yet available</div>` : ""}
                                     ${e.location ? `<div class="event-meta">📍 ${e.location}</div>` : ""}
                                     ${e.notes ? `<div class="event-meta event-notes">${e.notes}</div>` : ""}
+                                    ${todoNotesHtml}
                                     ${e.hasClash ? '<div class="clash-warning">⚠️ Schedule Clash</div>' : ""}
                                 `;
                                 eventsContainer.appendChild(card);
@@ -2124,6 +2138,19 @@
                                 const safeTitle = e.title.replace(/'/g, "\\'");
                                 const deleteAction = `handleDeleteClick('${e.id}', ${e.groupId ? `'${e.groupId}'` : "null"}, '${e.date}', '${safeTitle}')`;
 
+                                // Gather dynamically linked to-do tasks
+                                const linkedTasks = todos.filter(t => t.linkedId === e.id);
+                                let todoNotesHtml = "";
+                                if (linkedTasks.length > 0) {
+                                    todoNotesHtml = `<div class="event-meta event-notes" style="font-style: normal; margin-top: 4px; border-top: 1px dashed var(--border-color); padding-top: 4px;">`;
+                                    linkedTasks.forEach(t => {
+                                        todoNotesHtml += `<div style="margin-top: 2px; ${t.completed ? 'text-decoration: line-through; color: var(--completed-text);' : ''}">
+                                            ${t.completed ? '✅' : '⏳'} ${t.title}
+                                        </div>`;
+                                    });
+                                    todoNotesHtml += `</div>`;
+                                }
+
                                 card.innerHTML = `
                                     <button class="delete-btn" onclick="${deleteAction}">×</button>
                                     <div class="event-title">
@@ -2134,6 +2161,7 @@
                                     ${isLocked ? `<div class="locked-badge">Not yet available</div>` : ""}
                                     ${e.location ? `<div class="event-meta">📍 ${e.location}</div>` : ""}
                                     ${e.notes ? `<div class="event-meta event-notes">${e.notes}</div>` : ""}
+                                    ${todoNotesHtml}
                                     ${e.hasClash ? '<div class="clash-warning">⚠️ Schedule Clash</div>' : ""}
                                 `;
                                 cell.appendChild(card);
