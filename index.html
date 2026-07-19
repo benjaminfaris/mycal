@@ -32,6 +32,10 @@
                 --social-light: #e0e7ff;
                 --study: #0d9488;
                 --study-light: #f0fdfa;
+                
+                /* Added Sport Category Colors */
+                --sport: #10b981;
+                --sport-light: #ecfdf5;
 
                 /* Locked styling colors */
                 --locked-bg: #f8fafc;
@@ -492,10 +496,6 @@
             .event-card:last-child {
                 margin-bottom: 0;
             }
-            .event-card.assignment-type {
-                background: var(--assignment-light);
-                border-left-color: var(--assignment);
-            }
             .event-card.class-type {
                 background: var(--class-light);
                 border-left-color: var(--class);
@@ -515,6 +515,15 @@
             .event-card.study-type {
                 background: var(--study-light);
                 border-left-color: var(--study);
+            }
+            .event-card.assignment-type {
+                background: var(--assignment-light);
+                border-left-color: var(--assignment);
+            }
+            /* Added Sport Card Variant Styles */
+            .event-card.sport-type {
+                background: var(--sport-light);
+                border-left-color: var(--sport);
             }
 
             .event-card.completed-state {
@@ -864,7 +873,7 @@
             </div>
         </div>
 
-        <!-- Your Existing Dashboard Container (Initially Hidden) -->
+        <!-- Your Existing Dashboard Container -->
         <div id="dashboardContainer" style="display: none">
             <div class="container">
                 <header>
@@ -901,6 +910,7 @@
                                     <select id="eventCategory">
                                         <option value="class">🎓 Class</option>
                                         <option value="work">💼 Work</option>
+                                        <option value="sport">⚽ Sport</option>
                                         <option value="paua">🦪 PAUA</option>
                                         <option value="social">🎉 Social</option>
                                         <option value="study">📚 Study</option>
@@ -1030,6 +1040,10 @@
                         <label class="filter-opt">
                             <input type="checkbox" id="filterWork" checked onchange="renderCalendar()" />
                             <span style="color: var(--work)">Work</span>
+                        </label>
+                        <label class="filter-opt">
+                            <input type="checkbox" id="filterSport" checked onchange="renderCalendar()" />
+                            <span style="color: var(--sport)">Sport</span>
                         </label>
                         <label class="filter-opt">
                             <input type="checkbox" id="filterPaua" checked onchange="renderCalendar()" />
@@ -1759,9 +1773,11 @@
                 }
             }
 
+            // Updated filtering logic to respect the Sport display filter checkbox
             function getFilteredEvents() {
                 const showClasses = document.getElementById("filterClasses").checked;
                 const showWork = document.getElementById("filterWork").checked;
+                const showSport = document.getElementById("filterSport").checked;
                 const showPaua = document.getElementById("filterPaua").checked;
                 const showSocial = document.getElementById("filterSocial").checked;
                 const showStudy = document.getElementById("filterStudy").checked;
@@ -1772,6 +1788,7 @@
                     if (e.type === "event") {
                         if (e.category === "class" && !showClasses) return false;
                         if (e.category === "work" && !showWork) return false;
+                        if (e.category === "sport" && !showSport) return false;
                         if (e.category === "paua" && !showPaua) return false;
                         if (e.category === "social" && !showSocial) return false;
                         if (e.category === "study" && !showStudy) return false;
@@ -1869,16 +1886,20 @@
                                 const isAssign = e.type === "assignment";
                                 const isLocked = isAssign && isAssignmentLocked(e);
 
+                                // Category parsing mapping for styling hook
                                 let dynamicTypeClass = "class-type";
                                 if (isAssign) dynamicTypeClass = "assignment-type";
                                 else if (e.category === "work") dynamicTypeClass = "work-type";
+                                else if (e.category === "sport") dynamicTypeClass = "sport-type";
                                 else if (e.category === "paua") dynamicTypeClass = "paua-type";
                                 else if (e.category === "social") dynamicTypeClass = "social-type";
                                 else if (e.category === "study") dynamicTypeClass = "study-type";
 
+                                // Category emoji rendering
                                 let emoji = "🎓 ";
                                 if (isAssign) emoji = isLocked ? "🔒 " : "📝 ";
                                 else if (e.category === "work") emoji = "💼 ";
+                                else if (e.category === "sport") emoji = "⚽ ";
                                 else if (e.category === "paua") emoji = "🦪 ";
                                 else if (e.category === "social") emoji = "🎉 ";
                                 else if (e.category === "study") emoji = "📚 ";
@@ -1946,16 +1967,20 @@
                                 const isAssign = e.type === "assignment";
                                 const isLocked = isAssign && isAssignmentLocked(e);
 
+                                // Category parsing mapping for grid view styling hook
                                 let dynamicTypeClass = "class-type";
                                 if (isAssign) dynamicTypeClass = "assignment-type";
                                 else if (e.category === "work") dynamicTypeClass = "work-type";
+                                else if (e.category === "sport") dynamicTypeClass = "sport-type";
                                 else if (e.category === "paua") dynamicTypeClass = "paua-type";
                                 else if (e.category === "social") dynamicTypeClass = "social-type";
                                 else if (e.category === "study") dynamicTypeClass = "study-type";
 
+                                // Category emoji rendering
                                 let emoji = "🎓 ";
                                 if (isAssign) emoji = isLocked ? "🔒 " : "📝 ";
                                 else if (e.category === "work") emoji = "💼 ";
+                                else if (e.category === "sport") emoji = "⚽ ";
                                 else if (e.category === "paua") emoji = "🦪 ";
                                 else if (e.category === "social") emoji = "🎉 ";
                                 else if (e.category === "study") emoji = "📚 ";
